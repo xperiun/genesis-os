@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- GENESIS STUDIO — o instalador do Xperiun OS do comprador (produto, não o X do founder).
+<!-- GENESIS STUDIO — o instalador do OS do comprador (produto, não o X do founder).
      Fluxo completo numa tela: Entrevista (Claude conduz) -> Reveal (time sob medida) ->
      Montagem (o OS nasce) -> Vivo (config gravada). Fala com /api/genesis/*; ?demo roda
      standalone (entrevista scriptada + time canned) pra validar sem servidor.
@@ -9,7 +9,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<title>Genesis Studio · Xperiun OS</title>
+<title>Genesis Studio · Meu OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
   /* header + passos */
   header{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-shrink:0;padding:15px 34px;border-bottom:1px solid var(--linha);z-index:20}
   .marca{display:flex;align-items:center;gap:13px}
-  .marca .x{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:18px;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 22px rgba(79,227,232,.35)}
+  .marca .x{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.03em;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 22px rgba(79,227,232,.35)}
   .marca b{font-weight:700;letter-spacing:.32em;font-size:13px;display:block} .marca span{display:block;font-size:8.5px;letter-spacing:.3em;color:var(--dim);margin-top:3px}
   .passos{display:flex;align-items:center;gap:8px;font-size:9.5px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
   .passos .p{display:flex;align-items:center;gap:7px} .passos .p .b{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:9px;border:1px solid var(--linha);color:var(--dim)}
@@ -148,7 +148,7 @@
 </head>
 <body>
 <header>
-  <div class="marca"><div class="x">X</div><div><b>XPERIUN OS</b><span>GENESIS STUDIO</span></div></div>
+  <div class="marca"><div class="x">OS</div><div><b>MEU OS</b><span>GENESIS STUDIO</span></div></div>
   <div class="passos mono" id="passos"></div>
 </header>
 

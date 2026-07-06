@@ -28,16 +28,21 @@ import time
 import unicodedata
 from pathlib import Path
 
-_SYSTEM = """Você é o X, o entrevistador de onboarding do Xperiun OS. Sua missão nesta
+_SYSTEM = """Você é o X, o entrevistador de onboarding do OS do comprador. Sua missão nesta
 conversa: CONHECER a pessoa que acabou de instalar o OS dela e, no fim, PROJETAR o time
 de IA sob medida pra ela: especialistas feitos pro caso dela + skills que valha criar.
 
-Quem responde é o COMPRADOR da oferta (não é o founder da Xperiun). Pode ser um
-analista de dados (vá mais fundo, técnico) ou alguém que veio só aprender IA/Claude
-(guie, sem jargão). A PRIMEIRA resposta calibra: ajuste profundidade e linguagem.
+Quem responde é o COMPRADOR (não é o dono do produto). Pode ser um analista de dados (vá
+mais fundo, técnico), um profissional de qualquer área (dentista, advogado, gestor) ou
+alguém que veio só aprender IA/Claude (guie, sem jargão). A PRIMEIRA resposta calibra:
+ajuste profundidade e linguagem.
 
-Tom: direto, caloroso, brasileiro, afiado. Zero corporativês. Perguntas CURTAS, uma de
-cada vez. Nada de "Ótima pergunta"/"Perfeito"/"Vamos lá".
+Tom: direto, caloroso, brasileiro, afiado. Zero corporativês. Perguntas CURTAS, UMA de
+cada vez (nunca empilhe várias numa frase). Nada de "Ótima pergunta"/"Perfeito"/"Vamos lá".
+
+A PRIMEIRA pergunta é curta, aberta e acolhedora, e NÃO assume que a pessoa tem negócio ou
+vende algo (ela pode ser funcionária, autônoma, estudante). Abra simples pelo que ela faz,
+tipo "Pra começar, me conta: o que você faz no dia a dia?". Depois vá fundo pelas respostas.
 
 Português do Brasil com TODOS os acentos. NUNCA use travessão (o traço "—") em lugar
 nenhum: nem na pergunta, nem em NENHUM campo do JSON (entendi, por, desc, sub). Use
@@ -270,8 +275,17 @@ def passo(historico):
     Cérebro: o Claude Code do COMPRADOR (na assinatura dele, R$ 0, via `claude -p`). Se o
     `claude` não estiver disponível, cai numa entrevista determinística, pra nunca travar."""
     historico = historico or []
-    system = _SYSTEM
 
+    # a PRIMEIRA pergunta é FIXA: curta, aberta, acolhedora, sem assumir que a pessoa tem
+    # negócio ou vende algo. Deixado pro modelo, ele abre com "qual seu negócio, o que você
+    # vende", que exclui quem não vende (funcionário, analista, estudante). Do 2º turno em
+    # diante o modelo conduz, adaptando pelas respostas.
+    if not any(m.get("role") == "voce" for m in historico):
+        return {"done": False,
+                "pergunta": "Pra começar simples: o que você faz no dia a dia?",
+                "candidato": None}
+
+    system = _SYSTEM
     # o Claude Code do comprador conduz a entrevista, na assinatura dele
     prompt = _montar_prompt(historico)
     texto = _claude_cli(prompt, system)
@@ -288,7 +302,7 @@ def passo(historico):
     return _fallback(historico)
 
 
-# --- Instalação: materializa o OS do comprador (pasta mãe + subpastas = mini xperiun-os) ---
+# --- Instalação: materializa o OS do comprador (pasta mãe + subpastas = um mini OS) ---
 
 # Agente de Design System: OBRIGATÓRIO em todo OS (decisão founder). Extrai + cria.
 _DS_AGENTE_MD = """---
@@ -369,7 +383,7 @@ def _prompt_gerador(perfil, agentes, skills):
         f"- slug `{s.get('slug')}` ({s.get('nome', '')}, comando {s.get('cmd', '')}): {_sem_html(s.get('desc', ''))}"
         for s in skills) or "- (você decide de 2 a 4 automações pelo perfil)"
     return (
-        "Você é o motor de criação do Xperiun OS. Você PESQUISA na web e ESCREVE, do zero, "
+        "Você é o motor de criação do OS do comprador. Você PESQUISA na web e ESCREVE, do zero, "
         "os agentes e skills sob medida pra pessoa. Cada um é um especialista real e "
         "funcional, nada genérico de enfeite.\n\n"
         f"PERFIL (da entrevista):\n{perfil}\n\n"
@@ -525,7 +539,7 @@ def _claude_md(reco, base):
     agents_dir = base / ".claude" / "agents"
     skills_dir = base / ".claude" / "skills"
     L = ["# Meu OS", "",
-         "Sistema operacional pessoal montado pelo Genesis Studio (Xperiun OS). Este arquivo",
+         "Sistema operacional pessoal montado pelo Genesis Studio. Este arquivo",
          "é lido pelo Claude Code em TODA sessão: é o que faz o seu time entender VOCÊ.", "",
          "## Quem sou eu", "", "Detalhe em `contexto/perfil.md`. Resumo:"]
     L += [f"- {_sem_html(e)}" for e in entendi]
@@ -596,7 +610,7 @@ def _limpar_gerados(base):
 
 
 def instalar(reco, base):
-    """Materializa o OS do comprador em `base` (a pasta MÃE), espelhando o xperiun-os:
+    """Materializa o OS do comprador em `base` (a pasta MÃE), a estrutura do OS:
     - `.claude/agents/` — o TIME como SUBAGENTS REAIS do Claude Code (invocáveis), escritos
       sob medida pelo Claude Code do comprador + o `design-system` OBRIGATÓRIO (extrai + cria).
     - `.claude/settings.json` — o guarda-corpo: o hook que grava o pulso do time pro painel.
@@ -677,9 +691,9 @@ def instalar(reco, base):
     n_agentes = len(list(agents_dir.glob("*.md")))
     n_skills = len([x for x in skills_dir.glob("*") if x.is_dir()])
     (base / "README.md").write_text(
-        "# Meu OS\n\nGerado pelo Genesis Studio (Xperiun OS). "
+        "# Meu OS\n\nGerado pelo Genesis Studio. "
         f"{n_agentes} agentes, {n_skills} skills, feitos sob medida pra você.\n\n"
-        "Estrutura (igual ao Xperiun OS):\n"
+        "Estrutura do seu OS:\n"
         "- `.claude/agents/`: **o seu time, como subagents reais do Claude Code** (invocáveis)\n"
         "- `contexto/`: quem você é (o recheio: seu time entende VOCÊ)\n"
         "- `producao/`: onde as entregas do seu time caem\n"
