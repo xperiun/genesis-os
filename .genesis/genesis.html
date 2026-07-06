@@ -32,7 +32,7 @@
   /* header + passos */
   header{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-shrink:0;padding:15px 34px;border-bottom:1px solid var(--linha);z-index:20}
   .marca{display:flex;align-items:center;gap:13px}
-  .marca .x{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.03em;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 22px rgba(79,227,232,.35)}
+  .marca .x{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:18px;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 22px rgba(79,227,232,.35)}
   .marca b{font-weight:700;letter-spacing:.32em;font-size:13px;display:block} .marca span{display:block;font-size:8.5px;letter-spacing:.3em;color:var(--dim);margin-top:3px}
   .passos{display:flex;align-items:center;gap:8px;font-size:9.5px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
   .passos .p{display:flex;align-items:center;gap:7px} .passos .p .b{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:9px;border:1px solid var(--linha);color:var(--dim)}
@@ -51,7 +51,10 @@
   .conversa{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--linha)}
   .conv-top{padding:22px 40px 6px;flex-shrink:0}
   .conv-top h1{font-size:24px;font-weight:700;letter-spacing:-.01em;text-wrap:balance} .conv-top p{font-size:12.5px;color:var(--dim);margin-top:7px}
-  .fluxo{flex:1;overflow-y:auto;padding:18px 40px 8px;display:flex;flex-direction:column;gap:15px;justify-content:flex-end}
+  .fluxo{flex:1;overflow-y:auto;padding:18px 40px 8px;display:flex;flex-direction:column;gap:15px}
+  /* empurra as msgs pro fundo quando são poucas, SEM cortar as de cima no overflow
+     (o justify-content:flex-end fazia scrollHeight==clientHeight e sumia com o histórico) */
+  .fluxo::before{content:'';margin-top:auto}
   .msg{display:flex;gap:12px;max-width:88%;animation:sobe .4s ease-out}
   @keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .msg .av{width:34px;height:34px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;font-size:14px;font-weight:700}
@@ -148,7 +151,7 @@
 </head>
 <body>
 <header>
-  <div class="marca"><div class="x">OS</div><div><b>MEU OS</b><span>GENESIS STUDIO</span></div></div>
+  <div class="marca"><div class="x">X</div><div><b>MEU OS</b><span>GENESIS STUDIO</span></div></div>
   <div class="passos mono" id="passos"></div>
 </header>
 
