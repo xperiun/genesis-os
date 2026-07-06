@@ -106,7 +106,7 @@
   .time .por{font-size:12.5px;line-height:1.55;color:var(--dim);border-top:1px solid var(--linha2);padding-top:10px} .time .por b{color:var(--txt);font-weight:500}
   .skill{background:var(--card);border:1px solid var(--linha);border-radius:13px;padding:14px 16px;display:flex;gap:13px;align-items:flex-start;margin-bottom:10px}
   .skill .si{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;flex-shrink:0;background:rgba(159,123,255,.1);border:1px solid rgba(159,123,255,.3)}
-  .skill h4{font-size:14px;font-weight:600} .skill h4 .cmd{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--purple);background:rgba(159,123,255,.1);border:1px solid rgba(159,123,255,.26);border-radius:5px;padding:1px 7px;margin-left:8px}
+  .skill h4{font-family:ui-monospace,Consolas,monospace;font-size:13.5px;font-weight:600;color:var(--purple)}
   .skill p{font-size:12.5px;line-height:1.5;color:var(--dim);margin-top:6px} .skill p b{color:var(--txt);font-weight:500}
   .rev-rail{display:flex;flex-direction:column;gap:15px;position:sticky;top:14px}
   .painel{background:var(--card);border:1px solid var(--linha);border-radius:15px;padding:16px 18px} .ph{font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase;margin-bottom:13px}
@@ -129,6 +129,10 @@
   #term .term-h{display:flex;align-items:center;gap:6px;padding:9px 13px;border-bottom:1px solid var(--linha);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
   #term .term-h i{width:9px;height:9px;border-radius:50%;background:rgba(124,144,172,.4)} #term .term-h span{margin-left:8px}
   #term pre{margin:0;padding:12px 16px;max-height:176px;overflow-y:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.8;color:var(--cyan);white-space:pre-wrap;word-break:break-word;text-align:left}
+  #montando{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:rgba(4,7,12,.9);backdrop-filter:blur(6px)}
+  #montando.on{display:flex}
+  #montando .mtxt{font-size:28px;font-weight:700;letter-spacing:.01em;color:var(--cyan);text-align:center;padding:0 24px;animation:pisca 1.05s ease-in-out infinite}
+  @keyframes pisca{0%,100%{opacity:.3}50%{opacity:1}}
   #palco{flex:1;position:relative;min-height:340px}
   #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible} #wires path{fill:none;stroke:var(--live);stroke-width:2;opacity:.55;filter:drop-shadow(0 0 4px rgba(63,217,138,.5))}
   .voce{position:absolute;left:50%;top:30px;transform:translateX(-50%) scale(.5);opacity:0;z-index:3;display:flex;align-items:center;gap:14px;padding:14px 22px;border-radius:15px;background:linear-gradient(180deg,var(--hero),var(--card));border:1px solid rgba(232,201,160,.4);box-shadow:0 0 0 1px rgba(232,201,160,.1),0 18px 50px -22px rgba(232,201,160,.4)}
@@ -232,6 +236,7 @@
 
 <div id="aceite"><div class="em">🎖️</div><div><b id="acnome">—</b><span class="q" id="acq">—</span></div></div>
 <div id="flash"></div>
+<div id="montando"><div class="mtxt">Estou montando o seu time...</div></div>
 <div class="demoflag" id="demoflag"></div>
 
 <script>
@@ -304,12 +309,19 @@ async function perguntar(){  // devolve {done, pergunta?, recomendacao?}
     return await r.json();
   }catch(e){ return {done:false, pergunta:'Perdi a conexão com o meu cérebro aqui. Tenta responder de novo?'}; }
 }
+// beat de suspense entre a última resposta e o diagnóstico: overlay pulsando ~3s
+function montandoOverlay(){
+  return new Promise(res=>{
+    const el=$('#montando'); el.classList.add('on'); keyburst(12,55,.04);
+    setTimeout(()=>{ el.classList.remove('on'); res(); }, DEMO?3000:2400);
+  });
+}
 async function turnoX(inicial){
   typing(true);
   const res=await perguntar();
   await new Promise(r=>setTimeout(r, DEMO?700:100));
   typing(false);
-  if(res.done){ recomendacao=res.recomendacao; irReveal(); return; }
+  if(res.done){ recomendacao=res.recomendacao; await montandoOverlay(); irReveal(); return; }
   bolha('x',rich(res.pergunta)); keyclick(.06); historico.push({role:'x',texto:res.pergunta});
   if(res.candidato) setTimeout(()=>candidato(res.candidato),500);
   $('#resp').disabled=false; $('#btn-enviar').disabled=false; $('#resp').focus();
@@ -335,7 +347,7 @@ function irReveal(){
     return `<div class="time" style="--cor:${corIdx(i)}"><div class="tt"><div class="ic">${a.ic||'•'}</div><div class="ti"><h3>${esc(a.nome)}</h3><div class="tr">especialista sob medida</div></div><div class="tag">${esc(a.tag||'agente')}</div></div>
       <div class="por"><b>Por que:</b> ${rich(a.por||'')}</div></div>`;
   }).join('');
-  $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${s.ic||'⚡'}</div><div style="flex:1"><h4>${esc(s.nome)}${s.cmd?`<span class="cmd">${esc(s.cmd)}</span>`:''}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${s.ic||'⚡'}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
   const n=r.nums||{}; $('#rev-nums').innerHTML=`
     <div class="num a"><span class="v">${n.agentes??(r.agentes||[]).length}</span><span class="l">especialistas no seu time</span></div>
     <div class="num c"><span class="v">${n.skills??(r.skills||[]).length}</span><span class="l">skills sob medida</span></div>`;

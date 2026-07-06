@@ -58,7 +58,8 @@
   .ag-top{display:flex;align-items:center;gap:11px}
   .ag-ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:21px;background:rgba(255,255,255,.03);border:1px solid var(--linha);flex-shrink:0}
   .ag.live .ag-ico{border-color:rgba(63,217,138,.5)}
-  .ag-id{min-width:0;flex:1}.ag-id h3{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-id{min-width:0;flex:1}.ag-id h3{font-size:15px;font-weight:700;line-height:1.25}
+  .ag.live .ag-top{padding-right:44px}  /* reserva espaço pro badge "no ar", sem cortar o nome */
   .ag-id .cargo{font-size:9px;letter-spacing:.06em;color:var(--dim);margin-top:2px;text-transform:uppercase}
   .ag .desc{font-size:12px;line-height:1.5;color:var(--dim);border-top:1px solid var(--linha);padding-top:9px}
   .ag .fazendo{font-size:11px;color:var(--live);display:flex;align-items:center;gap:7px}
@@ -72,7 +73,7 @@
   #skills{display:flex;flex-wrap:wrap;gap:10px}
   .skill{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:11px;min-width:200px}
   .skill .si{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:rgba(159,123,255,.1);border:1px solid rgba(159,123,255,.3);flex-shrink:0}
-  .skill h4{font-size:13.5px;font-weight:600}.skill .cmd{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--purple)}
+  .skill h4{font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:600;color:var(--purple)}
   .skill p{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.4}
 
   /* rail */
@@ -173,7 +174,7 @@ function render(d){
 
   // skills
   $('#skills').innerHTML=(d.skills||[]).map(s=>`
-    <div class="skill"><div class="si">${s.ic||'⚡'}</div><div><h4>${esc(s.nome)} <span class="cmd">${esc(s.cmd||('/'+s.slug))}</span></h4><p>${esc((s.desc||'').slice(0,80))}</p></div></div>`).join('') || '<div class="vazio">Sem skills ainda.</div>';
+    <div class="skill"><div class="si">${s.ic||'⚡'}</div><div><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${esc((s.desc||'').slice(0,80))}</p></div></div>`).join('') || '<div class="vazio">Sem skills ainda.</div>';
   if((d.skills||[])[0]) $('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
 
   // fonte
