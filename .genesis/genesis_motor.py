@@ -352,15 +352,16 @@ description: >-
   entregável sair coeso.
 ---
 
-# Design System, extrator + criador (agente obrigatório do OS)
+# Guardião Visual, o dono do design system do OS (agente obrigatório)
 
-Você é o guardião do design system deste OS. Duas missões, sempre:
+Você é o Guardião Visual deste OS. Duas missões, sempre:
 
 ## 1. EXTRAIR
 Dada uma referência (um HTML, uma URL, um print, um site que a pessoa admira), extraia
 o design system dela: tokens de cor (hex exatos), tipografia (famílias, escala, pesos),
 espaçamento, radius, sombras, e os componentes/padrões estruturais. Nunca chute cor:
-leia a referência e tire o valor real.
+leia a referência e tire o valor real. Pra fazer isso com rigor e um entregável pronto,
+rode a skill `/extrair-design-system` (ela gera o `contexto/design-system.html`).
 
 ## 2. CRIAR e MANTER
 Crie e mantenha o design system deste OS num arquivo de referência. Todo entregável visual
@@ -375,6 +376,54 @@ existentes (paleta, radius, sombras); nunca invente cor nova nem gradient fora d
 
 Consistência visual é o que separa output profissional de amador. Por isso este agente
 é obrigatório em qualquer OS.
+"""
+
+# Skill OBRIGATÓRIA de extração de DS (simétrica ao agente). Self-contained: salva no OS do
+# comprador (contexto/), sem nenhum path do xperiun-os. É a ferramenta REAL por trás do
+# Guardião Visual (o agente para de ser só persona, ganha um processo que roda de verdade).
+_DS_SKILL_MD = """---
+name: extrair-design-system
+description: >-
+  Extrai o design system de uma referência (HTML, URL ou print) e gera um
+  design-system.html completo: tokens de cor com hex exato, tipografia, spacing, radius,
+  sombras, componentes e contraste WCAG AA, preservando as classes e animações do
+  original. Salva o DS mestre do seu OS em contexto/design-system.html. Use quando pedirem
+  "extrai o design system disso", "cria um style guide", ou passarem um HTML/URL/print.
+---
+
+# Extrair design system (skill obrigatória do OS)
+
+Você é o Guardião Visual. Recebe uma referência e produz o design system do OS: um
+`design-system.html` que é o CONTRATO entre design e implementação, não um moodboard.
+
+## Input
+Um caminho de arquivo HTML, uma URL, ou uma imagem/print de referência.
+
+## Processo
+1. Leia a referência DE VERDADE, nunca chute cor. HTML/URL: leia e tire os valores reais
+   (hex, fontes, px). Print: leia a imagem e tire os hex específicos.
+2. Extraia os tokens: cores (hex exatos: fundo, superfície, texto, dim, acento(s), borda,
+   estados), tipografia (famílias, escala, pesos, line-height), spacing, radius, sombras,
+   e os componentes/padrões (botões, cards, inputs, badges) com as classes e animações do
+   original preservadas (não aproxime, copie o comportamento).
+3. Gere o `design-system.html` com estas seções: tokens (`:root`), tipografia renderizada,
+   swatches de cor (hex + nome do token), componentes (cada um renderizado + a classe que o
+   produz), regras do/dont, acessibilidade (contraste WCAG AA nos pares texto/fundo, com os
+   ratios), e a origem (de onde extraiu + a data).
+4. Valide o contraste WCAG AA (4.5:1 texto normal, 3:1 texto grande). Par que falhar, ajuste
+   o token e anote.
+
+## Output
+- **DS mestre do OS:** `contexto/design-system.html`, a fonte de verdade pra todo entregável.
+- **Referência extraída:** cópia em `contexto/design/refs/<slug-da-fonte>/design-system.html`.
+- Já existe um `contexto/design-system.html`? Não sobrescreva cego: compare e evolua
+  mantendo o que já estava coerente.
+
+## Regras
+- Um DS é ~20% tokens e ~80% padrões que vivem juntos. Documente os padrões, não só os tokens.
+- Nunca invente cor nova nem gradient fora da paleta extraída.
+- Todo entregável visual do OS ancora nos tokens deste DS. Antes de dar algo como pronto,
+  confira contra ele: cores, tipografia, spacing, coerência entre páginas.
 """
 
 _RE_FM = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.DOTALL)
@@ -392,17 +441,24 @@ def _slug(s):
 
 
 def _garantir_ds(reco):
-    """Enforce: todo OS SEMPRE tem o agente de Design System (obrigatório, founder).
-    Injeta na lista de agentes se não estiver lá, e recalcula os números."""
+    """Enforce: todo OS SEMPRE tem o Guardião Visual (agente slug design-system) E a skill
+    /extrair-design-system, os dois obrigatórios (founder). Injeta o que faltar e recalcula.
+    O slug do agente segue 'design-system' (id interno estável); muda só o nome de exibição."""
     ags = reco.setdefault("agentes", [])
     if not any(_slug(a.get("slug") or a.get("nome")) == "design-system"
                for a in ags if isinstance(a, dict)):
-        ags.append({"slug": "design-system", "nome": "Design System", "ic": "🎨",
+        ags.append({"slug": "design-system", "nome": "Guardião Visual", "ic": "🎨",
                     "tag": "Obrigatório",
-                    "por": "Todo OS precisa de consistência visual. Esse agente <b>extrai</b> o design system de uma referência e <b>cria/mantém</b> o seu, pra todo entregável sair coeso."})
+                    "por": "Todo OS precisa de consistência visual. Ele <b>extrai</b> o design system de uma referência e <b>cria/mantém</b> o seu, pra todo entregável sair coeso."})
+    sks = reco.setdefault("skills", [])
+    if not any(_slug(s.get("slug") or s.get("cmd") or s.get("nome")) == "extrair-design-system"
+               for s in sks if isinstance(s, dict)):
+        sks.append({"slug": "extrair-design-system", "nome": "Extrair design system",
+                    "ic": "🎨", "cmd": "/extrair-design-system",
+                    "desc": "Extrai o design system de uma referência (HTML, URL, print) e gera o DS do seu OS."})
     nums = reco.setdefault("nums", {})
     nums["agentes"] = len(ags)
-    nums["skills"] = len(reco.get("skills") or [])
+    nums["skills"] = len(sks)
     return reco
 
 
@@ -554,7 +610,8 @@ def gerar_time(reco):
     perfil = "\n".join(f"- {_sem_html(e)}" for e in (reco.get("entendi") or [])) or "(sem perfil)"
     agentes = [a for a in (reco.get("agentes") or []) if isinstance(a, dict)
                and _slug(a.get("slug") or a.get("nome")) != "design-system"]
-    skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)]
+    skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)
+              and _slug(s.get("slug") or s.get("cmd") or s.get("nome")) != "extrair-design-system"]
     blocos = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills))
     if not blocos:
         return []
@@ -742,6 +799,8 @@ def instalar(reco, base):
             ger_ag.add(slug)
         for s in skills:
             slug = _slug(s.get("slug") or s.get("cmd") or s.get("nome"))
+            if slug == "extrair-design-system":
+                continue  # essa é cinto canônico (abaixo), não stub da entrevista
             d = skills_dir / slug
             d.mkdir(parents=True, exist_ok=True)
             (d / "SKILL.md").write_text(_subagent_md(
@@ -750,11 +809,18 @@ def instalar(reco, base):
                 "> Esboço da entrevista. Rode o Genesis com o Claude Code pra gerar a automação completa."),
                 encoding="utf-8")
             ger_sk.add(slug)
-    # cinto de segurança: o design-system existe SEMPRE, gerado ou não (scrub por garantia)
+    # cinto de segurança: o Guardião Visual (design-system.md) existe SEMPRE, gerado ou não
     if not (agents_dir / "design-system.md").exists():
         (agents_dir / "design-system.md").write_text(
             _sem_canon(_sem_traves(_DS_AGENTE_MD)), encoding="utf-8")
     ger_ag.add("design-system")
+    # e a skill /extrair-design-system, simétrica ao agente (a ferramenta REAL do Guardião)
+    _dsk = skills_dir / "extrair-design-system"
+    if not (_dsk / "SKILL.md").exists():
+        _dsk.mkdir(parents=True, exist_ok=True)
+        (_dsk / "SKILL.md").write_text(
+            _sem_canon(_sem_traves(_DS_SKILL_MD)), encoding="utf-8")
+    ger_sk.add("extrair-design-system")
 
     # guarda-corpo: o hook do pulso (o painel só fica vivo de verdade com isto materializado)
     (base / ".claude" / "settings.json").write_text(
