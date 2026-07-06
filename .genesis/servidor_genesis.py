@@ -91,8 +91,13 @@ def instalar():
     def rodar():
         try:
             genesis_motor.instalar(reco, BASE)
+            # conta o time REAL no disco (o que de fato saiu), pra o finale mostrar ESSE
+            # número, nunca o do modelo (que pode divergir se a geração cortar algum slug).
+            n_ag = len(list((BASE / ".claude" / "agents").glob("*.md")))
+            n_sk = len([x for x in (BASE / ".claude" / "skills").glob("*") if x.is_dir()])
             with _lock:
-                _estado.update({"status": "pronto", "caminho": str(BASE)})
+                _estado.update({"status": "pronto", "caminho": str(BASE),
+                                "agentes": n_ag, "skills": n_sk})
         except Exception as e:
             with _lock:
                 _estado.update({"status": "erro", "erro": str(e)[:200]})

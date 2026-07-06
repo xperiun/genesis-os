@@ -362,18 +362,22 @@ function irMontagem(){
     (async function poll(){
       let st={status:'gerando'};
       try{ st=await (await fetch('/api/genesis/status')).json(); }catch(e){}
-      if(st.status==='pronto'){ finaleVivo(agentes); return; }
+      if(st.status==='pronto'){ finaleVivo(agentes, st); return; }
       if(st.status==='erro'){ $('#mstatuslin').textContent='Falhou'; $('#mstatush1').textContent='Deu ruim na montagem. '+((st.erro||'').slice(0,80)); return; }
       if(Date.now()-inicio>12*60*1000){ $('#mstatush1').textContent='Tá demorando demais, tenta de novo.'; return; }
       setTimeout(poll,2000);
     })();
   },fim);
 }
-function finaleVivo(agentes){
+function finaleVivo(agentes, st){
   $('#flash').classList.remove('pop');void $('#flash').offsetWidth;$('#flash').classList.add('pop');
   $('#mstatus').classList.add('vivo'); $('#mstatuslin').textContent='Pronto'; $('#mstatush1').textContent='Seu OS está vivo.';
   const n=recomendacao.nums||{};
-  $('#finale-stats').innerHTML=`<div class="s"><div class="v a">${n.agentes??agentes.length}</div><div class="l">agentes</div></div><div class="s"><div class="v c">${n.skills??(recomendacao.skills||[]).length}</div><div class="l">skills</div></div>`;
+  // no ao vivo, mostra a contagem REAL do disco (st vem do /status), nunca o número do
+  // modelo: se a geração cortar um slug, o finale bate com o que existe no repo.
+  const nAg=(st&&st.agentes!=null)?st.agentes:(n.agentes??agentes.length);
+  const nSk=(st&&st.skills!=null)?st.skills:(n.skills??(recomendacao.skills||[]).length);
+  $('#finale-stats').innerHTML=`<div class="s"><div class="v a">${nAg}</div><div class="l">agentes</div></div><div class="s"><div class="v c">${nSk}</div><div class="l">skills</div></div>`;
   $('#finale-sub').textContent=DEMO?'(demo) no ao vivo, o Claude Code pesquisa e escreve seu time no seu repo, e te leva pra trabalhar.':'seu OS foi gravado no seu repo: contexto, agentes e skills. bora trabalhar.';
   $('#finale').classList.add('on');
   try{const ac=new (window.AudioContext||window.webkitAudioContext)();[0,.11,.22,.34].forEach((d,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=[660,880,1108,1318][i];o.connect(g);g.connect(ac.destination);const s=ac.currentTime+d;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.1,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+.5);o.start(s);o.stop(s+.55);});}catch(e){}

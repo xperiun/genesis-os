@@ -6,6 +6,7 @@
 /contexto/
 /producao/
 /meu-os.json
+/.genesis-atividade.jsonl
 
 # python
 __pycache__/

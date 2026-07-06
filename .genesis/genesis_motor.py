@@ -1,6 +1,6 @@
 """Motor do Genesis Studio: o Claude conduz a entrevista de onboarding e projeta o
-time sob medida do comprador, curando do catálogo REAL de squads + gerando skills
-custom. É o coração do produto (o fosso vs Paperclip, que te faz arquitetar na mão).
+time sob medida do comprador. Inventa os especialistas certos pro caso dela e o Claude
+Code dela pesquisa na web e escreve cada um do zero. É o coração do produto.
 
 Contrato com o frontend (genesis.html):
   passo(historico) -> dict
@@ -16,8 +16,10 @@ Seams de produto:
 - FALLBACK: se o Claude cair (sem chave, erro, JSON ruim), devolve um caminho digno em
   vez de travar o onboarding (a venda do produto não pode depender do caminho feliz).
 
-Reusa config (chave/modelo). Sem dependência do loop de voz do X (persona diferente:
-aqui o X é um entrevistador de RH, não o assistente do founder)."""
+Sem chave paga e sem catálogo fixo: o cérebro é o Claude Code do comprador (na assinatura
+dele, R$ 0). Ordem: (1) Claude Code via `claude -p`; (2) entrevista determinística, pra
+nunca travar. Sem dependência do loop de voz do X (persona diferente: aqui o X é um
+entrevistador de onboarding, não o assistente do founder)."""
 import json
 import re
 import shutil
@@ -40,6 +42,8 @@ cada vez. Nada de "Ótima pergunta"/"Perfeito"/"Vamos lá".
 Português do Brasil com TODOS os acentos. NUNCA use travessão (o traço "—") em lugar
 nenhum: nem na pergunta, nem em NENHUM campo do JSON (entendi, por, desc, sub). Use
 vírgula, ponto ou dois pontos. Travessão em prosa é vício de robô e queima a marca.
+NUNCA escreva "canon" nem "canônico" (jargão de produção): use "de referência",
+"principal" ou "padrão". O comprador lê isso e não pode parecer bug.
 
 Faça de 4 a 6 perguntas boas (o que a pessoa faz, o que consome o tempo dela, o que ela
 produz, meta pessoal/carreira, e se ela já tem algum DADO/fonte na mão ou começa do
@@ -116,17 +120,25 @@ def _extrair_json(texto):
 
 
 def _sem_traves(s):
-    """Mata travessão (vício de IA banido no projeto): vira vírgula. O motor não
-    tinha a regra que o X tem no config.py, então o Claude vazava — na prosa e no
-    que fica gravado no CLAUDE.md do comprador."""
+    """Mata travessão (vício de IA banido no projeto): vira vírgula. O prompt sozinho
+    vaza travessão na prosa e no que fica gravado no CLAUDE.md do comprador, então
+    limpo a saída também."""
     return re.sub(r"\s*[—–―]\s*", ", ", str(s or ""))
 
 
+def _sem_canon(s):
+    """Mata 'canon'/'canônico' (jargão de produção banido em material que o comprador
+    vê). O comprador abre o `.claude/agents/*.md` e o `CLAUDE.md`, então esses termos
+    não podem vazar. Substitui pelo sentido neutro."""
+    s = re.sub(r"(?i)can[oô]nic[oa]s?", "de referência", str(s or ""))
+    return re.sub(r"(?i)\bcanons?\b", "padrão", s)
+
+
 def _scrub(obj):
-    """Aplica _sem_traves recursivamente em toda string do objeto (defesa em
-    profundidade: o prompt sozinho vaza travessão, então limpo a saída também)."""
+    """Aplica _sem_traves + _sem_canon recursivamente em toda string do objeto (defesa
+    em profundidade: o prompt sozinho vaza esses vícios, então limpo a saída também)."""
     if isinstance(obj, str):
-        return _sem_traves(obj)
+        return _sem_canon(_sem_traves(obj))
     if isinstance(obj, list):
         return [_scrub(x) for x in obj]
     if isinstance(obj, dict):
@@ -288,7 +300,7 @@ description: >-
   entregável sair coeso.
 ---
 
-# Design System — extrator + criador (agente obrigatório do OS)
+# Design System, extrator + criador (agente obrigatório do OS)
 
 Você é o guardião do design system deste OS. Duas missões, sempre:
 
@@ -299,7 +311,7 @@ espaçamento, radius, sombras, e os componentes/padrões estruturais. Nunca chut
 leia a referência e tire o valor real.
 
 ## 2. CRIAR e MANTER
-Crie e mantenha o design system deste OS num arquivo canônico. Todo entregável visual
+Crie e mantenha o design system deste OS num arquivo de referência. Todo entregável visual
 do OS ancora nos tokens desse DS. Se falta um componente, crie seguindo os tokens
 existentes (paleta, radius, sombras); nunca invente cor nova nem gradient fora da paleta.
 
@@ -321,8 +333,8 @@ def _sem_html(s):
 
 
 def _slug(s):
-    # tira acento (NFKD) ANTES de slugar: 'Jean-Noël'/'André' passam a casar com o
-    # arquivo do catálogo (jean-noel.../andre...), senão a persona real virava stub.
+    # tira acento (NFKD) ANTES de slugar, pra o slug do agente ficar estável e casar
+    # com o nome do arquivo no disco ('André' vira andre) em qualquer sistema de arquivos.
     s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-") or "agente"
 
@@ -372,8 +384,9 @@ def _prompt_gerador(perfil, agentes, skills):
         "3) Pra CADA skill: frontmatter válido (name = o slug; description) + input, processo "
         "passo a passo (o que o Claude Code executa, com código quando fizer sentido) e "
         "output. Automação que RODA de verdade, não placeholder.\n"
-        "4) Português do Brasil com acentos, SEM travessão (o traço longo) em prosa. Não "
-        "cerque o arquivo com crase.\n\n"
+        "4) Português do Brasil com acentos, SEM travessão (o traço longo) em prosa e "
+        "SEM as palavras 'canon'/'canônico' (jargão de produção). Não cerque o arquivo "
+        "com crase.\n\n"
         "DEVOLVA só os arquivos, cada um num bloco EXATAMENTE assim (marcadores em linha "
         "própria), começando o conteúdo pelo frontmatter ---, e NADA além disso:\n\n"
         "===ARQUIVO:.claude/agents/SLUG.md===\n...\n===FIM===\n\n"
@@ -404,23 +417,30 @@ def _parse_blocos(texto):
     return out
 
 
-def gerar_time(reco):
-    """A montagem de verdade: o Claude Code do COMPRADOR pesquisa na web e ESCREVE o time
-    (agentes + skills) do zero, sob medida. Devolve [(caminho_rel, conteudo)]. [] se o CLI
-    não existe ou falha (aí instalar cai no copiar-do-catálogo, modo demo)."""
-    exe = shutil.which("claude")
-    if not exe:
-        return []
-    perfil = "\n".join(f"- {_sem_html(e)}" for e in (reco.get("entendi") or [])) or "(sem perfil)"
-    agentes = [a for a in (reco.get("agentes") or []) if isinstance(a, dict)
-               and _slug(a.get("slug") or a.get("nome")) != "design-system"]
-    skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)]
-    prompt = _prompt_gerador(perfil, agentes, skills)
+def _slugs_de(blocos):
+    """Slugs de agente e de skill presentes nos blocos gerados (pra medir completude)."""
+    ag, sk = set(), set()
+    for rel, _ in blocos:
+        m = re.match(r"\.claude/agents/(.+)\.md$", rel)
+        if m:
+            ag.add(m.group(1))
+        ms = re.match(r"\.claude/skills/([^/]+)/", rel)
+        if ms:
+            sk.add(ms.group(1))
+    return ag, sk
+
+
+def _gerar_rodada(exe, prompt):
+    """Uma rodada de geração via Claude Code do comprador (WebSearch/WebFetch). cwd
+    neutro (tempdir) pra a geração NÃO herdar o CLAUDE.md 'não montado' do repo do
+    comprador (que manda rodar /config primeiro), igual a entrevista faz."""
+    import tempfile
     try:
         proc = subprocess.run(
             [exe, "-p", "--allowedTools", "WebSearch WebFetch", "--output-format", "json"],
             input=prompt, capture_output=True, text=True,
-            encoding="utf-8", errors="ignore", timeout=600)
+            encoding="utf-8", errors="ignore", timeout=600,
+            cwd=tempfile.gettempdir())
     except Exception:
         return []
     if proc.returncode != 0 or not (proc.stdout or "").strip():
@@ -432,6 +452,34 @@ def gerar_time(reco):
     if env.get("is_error"):
         return []
     return _parse_blocos(env.get("result") or "")
+
+
+def gerar_time(reco):
+    """A montagem de verdade: o Claude Code do COMPRADOR pesquisa na web e ESCREVE o time
+    (agentes + skills) do zero, sob medida. Devolve [(caminho_rel, conteudo)]. [] se o CLI
+    não existe ou falha (aí instalar cai nos esboços válidos da entrevista)."""
+    exe = shutil.which("claude")
+    if not exe:
+        return []
+    perfil = "\n".join(f"- {_sem_html(e)}" for e in (reco.get("entendi") or [])) or "(sem perfil)"
+    agentes = [a for a in (reco.get("agentes") or []) if isinstance(a, dict)
+               and _slug(a.get("slug") or a.get("nome")) != "design-system"]
+    skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)]
+    blocos = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills))
+    if not blocos:
+        return []
+    # completude: se a resposta cortou e faltou algum slug pedido, re-pede SÓ os que
+    # faltaram (uma vez), pra o time entregue bater com o que o reveal prometeu.
+    req_ag = {_slug(a.get("slug") or a.get("nome")) for a in agentes}
+    req_sk = {_slug(s.get("slug") or s.get("cmd") or s.get("nome")) for s in skills}
+    tem_ag, tem_sk = _slugs_de(blocos)
+    falta_ag = [a for a in agentes if _slug(a.get("slug") or a.get("nome")) not in tem_ag]
+    falta_sk = [s for s in skills if _slug(s.get("slug") or s.get("cmd") or s.get("nome")) not in tem_sk]
+    if falta_ag or falta_sk:
+        extra = _gerar_rodada(exe, _prompt_gerador(perfil, falta_ag, falta_sk))
+        vistos = {rel for rel, _ in blocos}
+        blocos += [(rel, body) for rel, body in extra if rel not in vistos]
+    return blocos
 
 
 def _ler_fm(path):
@@ -507,33 +555,71 @@ def _claude_md(reco, base):
     return "\n".join(L)
 
 
+# Guarda-corpo do OS: o PostToolUse hook grava o pulso (quem o comprador delega, o quê),
+# pra o painel mostrar o time VIVO de verdade, não teatro. cwd do hook = raiz do repo, e
+# `atividade_hook.py` resolve o caminho por CLAUDE_PROJECT_DIR/cwd (sem depender de shell).
+_SETTINGS = {
+    "hooks": {
+        "PostToolUse": [
+            {"matcher": "Task",
+             "hooks": [{"type": "command",
+                        "command": "python .genesis/atividade_hook.py"}]}
+        ]
+    }
+}
+
+
+def _ler_gerados(base):
+    """Manifesto do que O GENESIS gerou na última instalação (slugs de agente e skill).
+    É a chave pra reinstalar preservando o que o comprador escreveu à mão."""
+    try:
+        d = json.loads((base / ".claude" / ".genesis-gerados.json").read_text(encoding="utf-8"))
+        return list(d.get("agentes") or []), list(d.get("skills") or [])
+    except Exception:
+        return [], []
+
+
+def _limpar_gerados(base):
+    """Reinstalar = apaga SÓ o que o Genesis gerou antes (pelo manifesto), preservando
+    agentes/skills autorais do comprador. Sem manifesto (1ª instalação), não apaga nada.
+    NUNCA toca producao/ (entregas do comprador)."""
+    import shutil as _sh
+    ag, sk = _ler_gerados(base)
+    for slug in ag:
+        p = base / ".claude" / "agents" / f"{slug}.md"
+        if p.exists():
+            p.unlink()
+    for slug in sk:
+        d = base / ".claude" / "skills" / slug
+        if d.is_dir():
+            _sh.rmtree(d, ignore_errors=True)
+
+
 def instalar(reco, base):
     """Materializa o OS do comprador em `base` (a pasta MÃE), espelhando o xperiun-os:
-    - `.claude/agents/` — o TIME como SUBAGENTS REAIS do Claude Code (invocáveis), com as
-      personas copiadas do catálogo + o agente `design-system` OBRIGATÓRIO (extrai + cria).
+    - `.claude/agents/` — o TIME como SUBAGENTS REAIS do Claude Code (invocáveis), escritos
+      sob medida pelo Claude Code do comprador + o `design-system` OBRIGATÓRIO (extrai + cria).
+    - `.claude/settings.json` — o guarda-corpo: o hook que grava o pulso do time pro painel.
     - `contexto/` — quem o comprador é (o recheio) + a fonte a conectar.
-    - `.claude/skills/` — as skills sob medida (stubs).
+    - `.claude/skills/` — as skills sob medida.
     - `producao/` — onde as entregas do time caem.
-    - `meu-os.json` — o manifesto. Idempotente. No produto empacotado, base = raiz do repo dele."""
+    - `meu-os.json` — o manifesto do reveal. Idempotente. base = raiz do repo do comprador."""
     from pathlib import Path as _P
     base = _P(base)
-    reco = _scrub(reco) if isinstance(reco, dict) else {}  # travessão fora do que grava
+    reco = _scrub(reco) if isinstance(reco, dict) else {}  # travessão/canon fora do que grava
     _garantir_ds(reco)  # DS obrigatório ANTES de materializar
     for sub in ("contexto", "producao", ".claude/agents", ".claude/skills"):
         (base / sub).mkdir(parents=True, exist_ok=True)
     agents_dir = base / ".claude" / "agents"
-    # re-instalar (refazer a entrevista) = time LIMPO: apaga agentes/skills de uma
-    # config anterior pra não sobrar fantasma. NUNCA toca producao/ (entregas do comprador).
-    import shutil as _sh
-    for _old in agents_dir.glob("*.md"):
-        _old.unlink()
-    _sh.rmtree(base / ".claude" / "skills", ignore_errors=True)
-    (base / ".claude" / "skills").mkdir(parents=True, exist_ok=True)
     skills_dir = base / ".claude" / "skills"
+    # re-instalar (refazer a entrevista): apaga SÓ o que o Genesis gerou antes (manifesto),
+    # preservando agentes/skills que o comprador escreveu à mão. NUNCA toca producao/.
+    _limpar_gerados(base)
     agentes = reco.get("agentes", []) or []
     skills = reco.get("skills", []) or []
     entendi = reco.get("entendi", []) or []
     fonte = reco.get("fonte", {}) or {}
+    ger_ag, ger_sk = set(), set()  # o que ESTA instalação gerou (vira o manifesto)
 
     # MONTAGEM: o Claude Code do comprador PESQUISA na web e ESCREVE o time do zero, sob
     # medida (o produto). Fallback: sem CLI (ou geração falha), escreve esboços VÁLIDOS
@@ -543,7 +629,13 @@ def instalar(reco, base):
         for rel, body in gerados:
             fp = base / rel
             fp.parent.mkdir(parents=True, exist_ok=True)
-            fp.write_text(_sem_traves(body).rstrip() + "\n", encoding="utf-8")
+            fp.write_text(_sem_canon(_sem_traves(body)).rstrip() + "\n", encoding="utf-8")
+            m = re.match(r"\.claude/agents/(.+)\.md$", rel)
+            if m:
+                ger_ag.add(m.group(1))
+            ms = re.match(r"\.claude/skills/([^/]+)/", rel)
+            if ms:
+                ger_sk.add(ms.group(1))
     else:
         for a in agentes:
             slug = _slug(a.get("slug") or a.get("nome"))
@@ -554,6 +646,7 @@ def instalar(reco, base):
                 f"# {a.get('nome', slug)}\n\nVocê é {a.get('nome', slug)}, especialista do seu OS. "
                 f"{_sem_html(a.get('por', ''))}\n\nRode o Genesis com o Claude Code pra me deixar "
                 "completo, com pesquisa e método a fundo."), encoding="utf-8")
+            ger_ag.add(slug)
         for s in skills:
             slug = _slug(s.get("slug") or s.get("cmd") or s.get("nome"))
             d = skills_dir / slug
@@ -563,9 +656,20 @@ def instalar(reco, base):
                 f"# {s.get('nome', slug)}\n\n{_sem_html(s.get('desc', ''))}\n\n"
                 "> Esboço da entrevista. Rode o Genesis com o Claude Code pra gerar a automação completa."),
                 encoding="utf-8")
-    # cinto de segurança: o design-system existe SEMPRE, gerado ou não
+            ger_sk.add(slug)
+    # cinto de segurança: o design-system existe SEMPRE, gerado ou não (scrub por garantia)
     if not (agents_dir / "design-system.md").exists():
-        (agents_dir / "design-system.md").write_text(_DS_AGENTE_MD, encoding="utf-8")
+        (agents_dir / "design-system.md").write_text(
+            _sem_canon(_sem_traves(_DS_AGENTE_MD)), encoding="utf-8")
+    ger_ag.add("design-system")
+
+    # guarda-corpo: o hook do pulso (o painel só fica vivo de verdade com isto materializado)
+    (base / ".claude" / "settings.json").write_text(
+        json.dumps(_SETTINGS, ensure_ascii=False, indent=2), encoding="utf-8")
+    # manifesto do que foi gerado, pra o próximo reinstall preservar o autoral
+    (base / ".claude" / ".genesis-gerados.json").write_text(
+        json.dumps({"agentes": sorted(ger_ag), "skills": sorted(ger_sk)},
+                   ensure_ascii=False, indent=2), encoding="utf-8")
 
     # agora que o time está no disco, o CLAUDE.md e o README refletem o que EXISTE de fato
     (base / "CLAUDE.md").write_text(_claude_md(reco, base), encoding="utf-8")
