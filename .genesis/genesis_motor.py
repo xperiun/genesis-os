@@ -433,7 +433,7 @@ def _slugs_de(blocos):
 def _gerar_rodada(exe, prompt):
     """Uma rodada de geração via Claude Code do comprador (WebSearch/WebFetch). cwd
     neutro (tempdir) pra a geração NÃO herdar o CLAUDE.md 'não montado' do repo do
-    comprador (que manda rodar /config primeiro), igual a entrevista faz."""
+    comprador (que manda rodar /config-os primeiro), igual a entrevista faz."""
     import tempfile
     try:
         proc = subprocess.run(

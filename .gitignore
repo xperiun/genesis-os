@@ -1,6 +1,6 @@
 # O OS que o comprador gera nasce na RAIZ. É conteúdo dele, não versiona. Assim um
 # git pull de melhoria do .genesis/ nunca conflita com o OS de quem já montou.
-# Exceção: .claude/commands/ é do template (o comando /config), esse fica versionado.
+# Exceção: .claude/commands/ é do template (o comando /config-os), esse fica versionado.
 /.claude/*
 !/.claude/commands/
 /contexto/

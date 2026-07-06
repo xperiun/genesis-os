@@ -1,8 +1,8 @@
 ---
-description: Monta (ou remonta) o seu Xperiun OS, a entrevista que cria o seu time sob medida
+description: Monta (ou remonta) o seu OS, a entrevista que cria o seu time sob medida
 ---
 
-O usuário quer montar (ou remontar) o Xperiun OS dele. Conduza assim, com tom caloroso e em português do Brasil:
+O usuário quer montar (ou remontar) o OS dele. Conduza assim, com tom caloroso e em português do Brasil:
 
 1. **Suba o Genesis** rodando, em segundo plano (background), o comando:
 
@@ -28,5 +28,5 @@ O usuário quer montar (ou remontar) o Xperiun OS dele. Conduza assim, com tom c
 4. Depois de montado, ele volta pra cá e é só pedir o que precisar ("monta o relatório da
    semana") ou rodar uma skill dele. Você já vai conhecer ele pelo `CLAUDE.md`.
 
-Se ele quiser refazer o time, é só rodar `/config` de novo. As entregas em `producao/`
+Se ele quiser refazer o time, é só rodar `/config-os` de novo. As entregas em `producao/`
 ficam intactas.
