@@ -7,8 +7,8 @@ do zero pro seu caso. Roda na sua assinatura do Claude Code, R$ 0 de API.
 ## Começar (uma vez só)
 
 1. Abra esta pasta no VS Code com o Claude Code.
-2. Fale com o Claude Code: **"sobe o localhost"**.
-3. Faça a entrevista. No fim, seu OS nasce aqui no repo.
+2. Digite **`/config`** no Claude Code. (É sempre a primeira coisa.)
+3. Faça a entrevista na tela. No fim, seu OS nasce aqui no repo.
 4. Volte pro Claude Code e comece a trabalhar (ex: `/relatorio-executivo`).
 
 Detalhe em `CLAUDE.md`.

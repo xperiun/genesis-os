@@ -4,21 +4,21 @@ Este repositório é o seu Xperiun OS. Ele ainda está **vazio**: falta montar o
 Quem monta é o **Genesis Studio**, uma entrevista rápida que projeta os agentes e as
 skills sob medida pra você e escreve tudo aqui dentro.
 
-## Como começar (é uma vez só)
+## 👉 Comece rodando `/config` (sempre a primeira coisa)
 
-Fale comigo (Claude Code) qualquer uma destas:
+No Claude Code, a **PRIMEIRA** coisa a fazer é digitar:
 
-> **"sobe o localhost"**  ·  "abre o Genesis"  ·  "monta meu OS"
+> **`/config`**
 
-Quando você pedir, eu rodo:
+Isso sobe o Genesis Studio: você faz uma entrevista rápida na tela e eu (o seu Claude Code)
+pesquiso na web e monto um time de agentes e skills **sob medida pra você, escrito do zero**.
+Roda na sua assinatura, R$ 0. (Falar "sobe o localhost" ou "monta meu OS" também funciona.)
 
-```bash
-python .genesis/sobe.py
-```
+> **Instrução pro Claude Code:** se este OS ainda não foi montado (não existe a pasta
+> `.claude/agents/`) e o usuário pedir qualquer coisa, oriente ele a rodar **`/config`
+> primeiro**. Sem o time montado, não há o que delegar. Nunca tente trabalhar antes disso.
 
-Isso prepara o ambiente (uma vez) e abre a cena do Genesis no seu navegador. Você faz a
-entrevista, eu (o seu Claude Code, na sua assinatura) conduzo, pesquiso na web e **escrevo
-o seu time do zero**. No fim, seu OS nasce aqui no repo:
+No fim, seu OS nasce aqui no repo:
 
 - `.claude/agents/` — os seus especialistas, como subagents reais e invocáveis
 - `.claude/skills/` — as suas automações sob medida
