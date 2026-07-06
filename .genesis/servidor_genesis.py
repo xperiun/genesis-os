@@ -109,7 +109,9 @@ def instalar():
 @app.get("/api/genesis/status")
 def status():
     with _lock:
-        return jsonify(dict(_estado))
+        est = dict(_estado)
+    est["log"] = genesis_motor.montagem_log()  # o que o Claude Code faz ao vivo, pro terminal
+    return jsonify(est)
 
 
 if __name__ == "__main__":

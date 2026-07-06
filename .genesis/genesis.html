@@ -123,8 +123,12 @@
   /* ---- MONTAGEM ---- */
   #fase-montagem{display:flex;flex-direction:column}
   .status{flex-shrink:0;text-align:center;padding:26px 20px 6px} .status .lin{font-size:11px;letter-spacing:.28em;color:var(--cyan);text-transform:uppercase;display:inline-flex;align-items:center;gap:9px}
-  .status .lin i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan);animation:pulsa 1.4s infinite} .status h1{font-size:29px;font-weight:700;margin-top:12px;transition:color .5s}
+  .status .lin i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan);animation:pulsa 1.4s infinite} .status h1{font-size:29px;font-weight:700;margin-top:12px;transition:color .5s} .status .msub{font-size:12.5px;color:var(--dim);line-height:1.5;max-width:58ch;margin:12px auto 0}
   .status.vivo .lin{color:var(--live)} .status.vivo .lin i{background:var(--live);box-shadow:0 0 9px var(--live)} .status.vivo h1{color:var(--gold)}
+  #term{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;width:min(760px,92vw);z-index:70;background:rgba(4,7,12,.92);border:1px solid var(--linha);border-radius:12px;overflow:hidden;box-shadow:0 14px 50px rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+  #term .term-h{display:flex;align-items:center;gap:6px;padding:9px 13px;border-bottom:1px solid var(--linha);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  #term .term-h i{width:9px;height:9px;border-radius:50%;background:rgba(124,144,172,.4)} #term .term-h span{margin-left:8px}
+  #term pre{margin:0;padding:12px 16px;max-height:176px;overflow-y:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.8;color:var(--cyan);white-space:pre-wrap;word-break:break-word;text-align:left}
   #palco{flex:1;position:relative;min-height:340px}
   #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible} #wires path{fill:none;stroke:var(--live);stroke-width:2;opacity:.55;filter:drop-shadow(0 0 4px rgba(63,217,138,.5))}
   .voce{position:absolute;left:50%;top:30px;transform:translateX(-50%) scale(.5);opacity:0;z-index:3;display:flex;align-items:center;gap:14px;padding:14px 22px;border-radius:15px;background:linear-gradient(180deg,var(--hero),var(--card));border:1px solid rgba(232,201,160,.4);box-shadow:0 0 0 1px rgba(232,201,160,.1),0 18px 50px -22px rgba(232,201,160,.4)}
@@ -211,6 +215,7 @@
   <div class="status" id="mstatus">
     <div class="lin"><i></i><span id="mstatuslin">Dando vida ao seu OS</span></div>
     <h1 id="mstatush1">Contratando o seu time...</h1>
+    <p class="msub" id="mstatussub"></p>
   </div>
   <div id="palco">
     <svg id="wires"></svg>
@@ -222,6 +227,7 @@
       <div class="fsub" id="finale-sub"></div>
     </div>
   </div>
+  <div id="term" hidden><div class="term-h"><i></i><i></i><i></i><span>montagem · ao vivo</span></div><pre id="term-body"></pre></div>
 </main>
 
 <div id="aceite"><div class="em">🎖️</div><div><b id="acnome">—</b><span class="q" id="acq">—</span></div></div>
@@ -351,6 +357,7 @@ function irMontagem(){
     wrap.appendChild(d);
   });
   $('#voce').className='voce'; $('#wires').innerHTML=''; $('#finale').classList.remove('on'); $('#mstatus').classList.remove('vivo');
+  $('#term').hidden=true; $('#term-body').textContent='';
   $('#mstatuslin').textContent='Dando vida ao seu OS'; $('#mstatush1').textContent='Contratando o seu time...';
   // dispara a criação REAL em background (o Claude Code pesquisa e escreve o time). O
   // teatro toca por cima; o "vivo" só dispara quando os arquivos existem de verdade.
@@ -360,23 +367,47 @@ function irMontagem(){
   els.forEach((el,i)=>setTimeout(()=>{el.classList.add('on');linha(el);keyclick(.08);aceite(agentes[i]);},1400+i*1050));
   const fim=1400+els.length*1050+400;
   setTimeout(()=>{
-    if(DEMO){ finaleVivo(agentes); return; }
-    $('#mstatuslin').textContent='Pesquisando e escrevendo'; $('#mstatush1').textContent='Escrevendo cada especialista a fundo...';
+    if(DEMO){ demoLog(agentes); return; }
+    $('#mstatuslin').textContent='Pesquisando e escrevendo';
     keyburst(14,60,.04);
     const inicio=Date.now();
+    const passos=['Pesquisando frameworks e métodos reais na web...','Escrevendo cada especialista a fundo...','Detalhando o método de cada um...','Montando as skills sob medida...','Quase lá, revisando o time...'];
     (async function poll(){
+      const seg=Math.floor((Date.now()-inicio)/1000);
+      $('#mstatush1').textContent=passos[Math.min(Math.floor(seg/25),passos.length-1)];
+      $('#mstatussub').textContent=`${Math.floor(seg/60)}m${String(seg%60).padStart(2,'0')}s · isso leva uns 2 a 4 min, é proposital: o seu Claude Code pesquisa na web e escreve o seu time do zero.`;
       let st={status:'gerando'};
       try{ st=await (await fetch('/api/genesis/status')).json(); }catch(e){}
+      if(st.log&&st.log.length){ const tb=$('#term-body'),txt=st.log.join('\n'); if(tb.textContent!==txt){tb.textContent=txt;tb.scrollTop=tb.scrollHeight;} $('#term').hidden=false; }
       if(st.status==='pronto'){ finaleVivo(agentes, st); return; }
-      if(st.status==='erro'){ $('#mstatuslin').textContent='Falhou'; $('#mstatush1').textContent='Deu ruim na montagem. '+((st.erro||'').slice(0,80)); return; }
-      if(Date.now()-inicio>12*60*1000){ $('#mstatush1').textContent='Tá demorando demais, tenta de novo.'; return; }
+      if(st.status==='erro'){ $('#mstatuslin').textContent='Falhou'; $('#mstatush1').textContent='Deu ruim na montagem. '+((st.erro||'').slice(0,80)); $('#mstatussub').textContent=''; return; }
+      if(seg>12*60){ $('#mstatush1').textContent='Tá demorando demais, tenta de novo.'; $('#mstatussub').textContent=''; return; }
       setTimeout(poll,2000);
     })();
   },fim);
 }
+// DEMO: mesmo terminal do ao vivo, com um log scriptado (derivado do time canned), pra o
+// palco/teste mostrar a montagem com progresso, sem servidor.
+function demoLog(agentes){
+  $('#mstatuslin').textContent='Pesquisando e escrevendo';
+  const body=$('#term-body'); $('#term').hidden=false; body.textContent='';
+  const buscas=['Organizando o time e preparando o repositório...','Pesquisando: "SQL views self-service analytics best practices"','Pesquisando: "Power BI star schema Kimball dimensional modeling"','Pesquisando: "DAX patterns financial reporting SQLBI"'];
+  const escreve=agentes.map(a=>'Escrevendo .claude/agents/'+a.slug+'.md');
+  const skills=(recomendacao.skills||[]).map(s=>'Escrevendo .claude/skills/'+s.slug+'/SKILL.md');
+  const linhas=[...buscas,...escreve,...skills,'Time gravado no seu repositório.'];
+  const passos=['Pesquisando frameworks e métodos reais na web...','Escrevendo cada especialista a fundo...','Montando as skills sob medida...','Quase lá, revisando o time...'];
+  let i=0;
+  (function tick(){
+    if(i>=linhas.length){ $('#mstatussub').textContent=''; setTimeout(()=>finaleVivo(agentes),800); return; }
+    body.textContent+=(i?'\n':'')+linhas[i]; body.scrollTop=body.scrollHeight; keyclick(.05);
+    $('#mstatush1').textContent=passos[Math.min(Math.floor(i/2),passos.length-1)];
+    $('#mstatussub').textContent='(demo) no ao vivo, isso é o seu Claude Code pesquisando na web e escrevendo o time de verdade.';
+    i++; setTimeout(tick,560);
+  })();
+}
 function finaleVivo(agentes, st){
   $('#flash').classList.remove('pop');void $('#flash').offsetWidth;$('#flash').classList.add('pop');
-  $('#mstatus').classList.add('vivo'); $('#mstatuslin').textContent='Pronto'; $('#mstatush1').textContent='Seu OS está vivo.';
+  $('#mstatus').classList.add('vivo'); $('#mstatuslin').textContent='Pronto'; $('#mstatush1').textContent='Seu OS está vivo.'; $('#mstatussub').textContent=''; $('#term').hidden=true;
   const n=recomendacao.nums||{};
   // no ao vivo, mostra a contagem REAL do disco (st vem do /status), nunca o número do
   // modelo: se a geração cortar um slug, o finale bate com o que existe no repo.
@@ -400,7 +431,9 @@ function aceite(a){ if(!a)return; const el=$('#aceite');
 }
 // a criação já rodou em background durante a montagem e o "vivo" só aparece quando ela
 // terminou, então aqui é só ir pro OS (nada de instalar de novo).
-$('#btn-entrar').addEventListener('click',()=>{ keyclick(.1); location.href = DEMO ? location.pathname : '/painel'; });
+$('#btn-entrar').addEventListener('click',()=>{ keyclick(.1);
+  const base = location.protocol==='file:' ? 'painel.html' : '/painel';  // serve via http OU file
+  location.href = DEMO ? base+'?demo' : base; });
 
 // ---------- boot ----------
 mostrarFase('entrevista',0);

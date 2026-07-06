@@ -50,9 +50,11 @@ vírgula, ponto ou dois pontos. Travessão em prosa é vício de robô e queima 
 NUNCA escreva "canon" nem "canônico" (jargão de produção): use "de referência",
 "principal" ou "padrão". O comprador lê isso e não pode parecer bug.
 
-Faça de 4 a 6 perguntas boas (o que a pessoa faz, o que consome o tempo dela, o que ela
-produz, meta pessoal/carreira, e se ela já tem algum DADO/fonte na mão ou começa do
-zero). Quando tiver entendido o suficiente, MONTE o time.
+Faça de 5 a 7 perguntas boas, NUNCA mais que isso. Cubra o ESSENCIAL e pare: o que a pessoa
+faz, a dor principal, o que ela produz, a meta dela, e se já tem algum DADO/fonte na mão. NÃO
+afunde num único assunto: no máximo UMA pergunta de aprofundamento por tema, depois siga pro
+próximo. Entrevista longa cansa e queima a experiência (a pessoa começa a perguntar "por que
+tanta pergunta?"). Assim que tiver o essencial, PARE e MONTE o time, não estique.
 
 Os agentes são SOB MEDIDA: você INVENTA os especialistas certos pro caso da pessoa (um
 papel claro, não um nome de celebridade). Ex: "Analista de Varejo", "Narrador de Dados",
@@ -103,6 +105,28 @@ _FALLBACK_RECO = {
     "skills": [{"ic": "⚡", "slug": "relatorio-executivo", "nome": "Relatório executivo", "cmd": "/relatorio-executivo", "desc": "Monta o executivo da semana num comando."}],
     "fonte": {"titulo": "sua fonte de dados", "sub": "Conecte uma planilha ou um objetivo pra o time começar a enxergar."},
 }
+
+
+# --- Log da montagem: o que o Claude Code faz AO VIVO (buscas na web, arquivos escritos).
+# Lido pelo terminal do frontend via /status. Preenchido pelo streaming em _gerar_rodada. ---
+_MLOG = []
+
+
+def _mlog(msg):
+    m = _sem_html(str(msg or "")).strip()
+    if not m:
+        return
+    _MLOG.append(m)
+    if len(_MLOG) > 160:  # segura só o rabo, o terminal não precisa do histórico todo
+        del _MLOG[:-160]
+
+
+def _mlog_reset():
+    _MLOG.clear()
+
+
+def montagem_log():
+    return list(_MLOG)
 
 
 _DEC = json.JSONDecoder()
@@ -215,7 +239,21 @@ def _montar_prompt(historico):
             tem = True
     if not tem:
         linhas.append("(a conversa ainda não começou: faça a PRIMEIRA pergunta)")
-    linhas += ["",
+    # teto DURO por contagem: o modelo ignora o "5 a 7" do system e estica a entrevista
+    # (a pessoa começa a reclamar). A pressão cresce com o número de perguntas já feitas.
+    n_perg = sum(1 for m in historico if m.get("role") == "x")
+    fecha = ""
+    if n_perg >= 7:
+        fecha = (f"ATENÇÃO: você já fez {n_perg} perguntas, é DEMAIS. PARE de perguntar. "
+                 "Responda AGORA com acao:montar, montando o time com o que já sabe. "
+                 "Fazer outra pergunta neste ponto é ERRO.")
+    elif n_perg >= 5:
+        fecha = (f"Você já tem material suficiente ({n_perg} perguntas). Faça no MÁXIMO "
+                 "mais UMA pergunta e então MONTE. Prefira montar agora.")
+    linhas += [""]
+    if fecha:
+        linhas += [fecha, ""]
+    linhas += [
         "Sua vez. Responda com UM objeto JSON e NADA além dele (sem crase, sem texto "
         "fora). Não use ferramentas, não leia arquivos. Use EXATAMENTE um destes dois "
         "formatos, com ESTAS chaves. NÃO invente chaves (nada de next_question, "
@@ -225,7 +263,7 @@ def _montar_prompt(historico):
         'UMA frase, sem saudação>","candidato":{"ic":"<emoji>","nome":"<um especialista '
         'sob medida>","papel":"<o que ele faz>"}}  (candidato pode ser null)',
         "",
-        'Pra fechar (só depois de 4 a 6 perguntas boas): {"acao":"montar","recomendacao":'
+        'Pra fechar (depois de 5 a 7 perguntas boas, nunca mais): {"acao":"montar","recomendacao":'
         '{"entendi":["<3-4 frases do que você entendeu>"],"agentes":[{"slug":"<kebab>",'
         '"nome":"<nome do especialista>","ic":"<emoji>","tag":"Essencial|Recomendado|'
         'Opcional","por":"<por que esse especialista>"}],"skills":[{"slug":"<kebab>",'
@@ -445,27 +483,65 @@ def _slugs_de(blocos):
 
 
 def _gerar_rodada(exe, prompt):
-    """Uma rodada de geração via Claude Code do comprador (WebSearch/WebFetch). cwd
-    neutro (tempdir) pra a geração NÃO herdar o CLAUDE.md 'não montado' do repo do
-    comprador (que manda rodar /config-os primeiro), igual a entrevista faz."""
+    """Uma rodada de geração via Claude Code do comprador, em STREAMING: lê os eventos ao
+    vivo pra alimentar o log da montagem (buscas na web, arquivos escritos) e devolve os
+    blocos parseados do texto final. cwd neutro (tempdir) pra a geração NÃO herdar o
+    CLAUDE.md 'não montado' do repo do comprador, igual a entrevista faz."""
     import tempfile
+    import threading
     try:
-        proc = subprocess.run(
-            [exe, "-p", "--allowedTools", "WebSearch WebFetch", "--output-format", "json"],
-            input=prompt, capture_output=True, text=True,
-            encoding="utf-8", errors="ignore", timeout=600,
-            cwd=tempfile.gettempdir())
+        proc = subprocess.Popen(
+            [exe, "-p", "--allowedTools", "WebSearch WebFetch",
+             "--output-format", "stream-json", "--verbose"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, encoding="utf-8", errors="ignore", cwd=tempfile.gettempdir())
     except Exception:
         return []
-    if proc.returncode != 0 or not (proc.stdout or "").strip():
-        return []
+    watchdog = threading.Timer(600, proc.kill)  # teto duro se travar sem produzir saída
+    watchdog.start()
     try:
-        env = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return []
-    if env.get("is_error"):
-        return []
-    return _parse_blocos(env.get("result") or "")
+        proc.stdin.write(prompt)
+        proc.stdin.close()
+    except Exception:
+        pass
+    texto_final, buf, vistos = "", "", set()
+    try:
+        for linha in proc.stdout:
+            linha = linha.strip()
+            if not linha or linha[0] != "{":
+                continue  # ignora o ruído não-JSON (saída de hooks etc.)
+            try:
+                ev = json.loads(linha)
+            except Exception:
+                continue
+            tp = ev.get("type")
+            if tp == "assistant":
+                for c in (ev.get("message") or {}).get("content") or []:
+                    ct = c.get("type")
+                    if ct == "tool_use":
+                        nome, inp = c.get("name", ""), (c.get("input") or {})
+                        if nome == "WebSearch":
+                            _mlog('Pesquisando: "%s"' % _corta(inp.get("query", ""), 66))
+                        elif nome == "WebFetch":
+                            _mlog("Lendo: %s" % _corta(inp.get("url", ""), 66))
+                    elif ct == "text":
+                        buf += c.get("text", "")
+                        for m in re.finditer(r"===ARQUIVO:(.+?)===", buf):
+                            p = m.group(1).strip()
+                            if p not in vistos:
+                                vistos.add(p)
+                                _mlog("Escrevendo %s" % p)
+            elif tp == "result":
+                texto_final = ev.get("result") or ""
+    except Exception:
+        pass
+    finally:
+        watchdog.cancel()
+    try:
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+    return _parse_blocos(texto_final or buf)
 
 
 def gerar_time(reco):
@@ -620,6 +696,8 @@ def instalar(reco, base):
     - `meu-os.json` — o manifesto do reveal. Idempotente. base = raiz do repo do comprador."""
     from pathlib import Path as _P
     base = _P(base)
+    _mlog_reset()
+    _mlog("Organizando o time e preparando o repositório...")
     reco = _scrub(reco) if isinstance(reco, dict) else {}  # travessão/canon fora do que grava
     _garantir_ds(reco)  # DS obrigatório ANTES de materializar
     for sub in ("contexto", "producao", ".claude/agents", ".claude/skills"):
@@ -638,6 +716,7 @@ def instalar(reco, base):
     # MONTAGEM: o Claude Code do comprador PESQUISA na web e ESCREVE o time do zero, sob
     # medida (o produto). Fallback: sem CLI (ou geração falha), escreve esboços VÁLIDOS
     # dos agentes/skills recomendados, pra nunca travar o onboarding.
+    _mlog("Contratando os especialistas: pesquisa na web + escrita do zero.")
     gerados = gerar_time(reco)
     if gerados:
         for rel, body in gerados:
@@ -715,6 +794,17 @@ def instalar(reco, base):
         encoding="utf-8")
 
     (base / "producao" / ".gitkeep").write_text("", encoding="utf-8")
+
+    # git limpo: os únicos rastreados que o config sobrescreve são CLAUDE.md e README.md
+    # (o resto do OS é gitignored). skip-worktree faz o git parar de mostrá-los como
+    # modificados e o pull de melhorias do código (.genesis/) nunca esbarrar neles.
+    if (base / ".git").exists():
+        try:
+            subprocess.run(["git", "-C", str(base), "update-index", "--skip-worktree",
+                            "CLAUDE.md", "README.md"], capture_output=True, timeout=15)
+        except Exception:
+            pass
+    _mlog("Time gravado no seu repositório.")
     return base
 
 
