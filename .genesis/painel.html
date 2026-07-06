@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!-- Painel do OS do comprador (a superfície VISUALIZAR): o time dele como uma agência
+     viva. VOCÊ no topo, os agentes reportando, acendendo quando trabalham. Lê /api/painel
+     (o OS real no disco) + a atividade do Claude Code (o hook). DS do orb do X. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Meu OS · Xperiun OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cyan:#4FE3E8;--gold:#E8C9A0;--amber:#FFB347;--purple:#9F7BFF;--live:#3FD98A;
+    --txt:#DFE8F2;--dim:#7C90AC;--bg:#04070C;--card:#0A0F16;--card2:#0C121B;--linha:rgba(124,144,172,.16)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%;background:var(--bg);color:var(--txt);font-family:'Space Grotesk','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:radial-gradient(1100px 600px at 82% -8%,rgba(159,123,255,.10),transparent 60%),radial-gradient(900px 520px at 8% 4%,rgba(79,227,232,.08),transparent 55%),var(--bg)}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 30px;border-bottom:1px solid var(--linha);position:sticky;top:0;z-index:20;background:linear-gradient(180deg,rgba(4,7,12,.94),rgba(4,7,12,.72));backdrop-filter:blur(10px)}
+  .marca{display:flex;align-items:center;gap:13px}
+  .marca .x{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:18px;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 22px rgba(79,227,232,.35)}
+  .marca b{font-weight:700;letter-spacing:.34em;font-size:13px;display:block}.marca span{display:block;font-size:9px;letter-spacing:.3em;color:var(--dim);margin-top:3px}
+  .hstatus{display:flex;align-items:center;gap:16px;font-size:10.5px;letter-spacing:.2em;color:var(--dim)}
+  .hstatus .on{display:flex;align-items:center;gap:8px;color:var(--txt)}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--dim)}
+  .dot.vivo{background:var(--live);box-shadow:0 0 9px var(--live);animation:pulsa 2s infinite}
+  #relogio{font-variant-numeric:tabular-nums;color:var(--txt)}
+
+  #kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:22px 30px 4px}
+  .kpi{background:var(--card);border:1px solid var(--linha);border-radius:14px;padding:15px 17px}
+  .kpi .n{font-weight:700;font-size:30px;line-height:1;display:flex;align-items:baseline;gap:8px}
+  .kpi .n small{font-size:12px;font-weight:500;color:var(--dim)}
+  .kpi .r{font-size:10px;letter-spacing:.22em;color:var(--dim);margin-top:9px;text-transform:uppercase}
+  .kpi.viva .n{color:var(--live)}.kpi.destaque .n{color:var(--gold)}
+
+  main{display:grid;grid-template-columns:1fr 360px;gap:22px;padding:18px 30px 46px;align-items:start}
+  h2.sec{font-weight:700;font-size:12px;letter-spacing:.32em;color:var(--dim);margin:6px 2px 15px;text-transform:uppercase}
+  h2.sec b{color:var(--txt)}
+
+  /* ORG: VOCÊ no topo -> agentes reportando via linhas */
+  #org{position:relative}
+  #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
+  #wires path{fill:none;stroke:var(--linha);stroke-width:1.5}
+  #wires path.hot{stroke:var(--live);stroke-width:2.2;filter:drop-shadow(0 0 5px rgba(63,217,138,.6));animation:fluxo 1.1s linear infinite}
+  @keyframes fluxo{to{stroke-dashoffset:-14}}
+  .voce{position:relative;z-index:2;width:max-content;max-width:100%;margin:2px auto 34px;display:flex;align-items:center;gap:16px;padding:15px 24px;border-radius:16px;background:linear-gradient(180deg,#0E141E,var(--card));border:1px solid rgba(232,201,160,.34);box-shadow:0 0 0 1px rgba(232,201,160,.08),0 18px 50px -24px rgba(0,0,0,.9)}
+  .voce .av{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:radial-gradient(circle at 40% 35%,rgba(232,201,160,.22),rgba(232,201,160,.05));border:1px solid rgba(232,201,160,.4)}
+  .voce .t b{font-size:18px;font-weight:700;display:block}.voce .t span{font-size:9px;letter-spacing:.24em;color:var(--gold);text-transform:uppercase;display:block;margin-top:4px}
+  #grid-agentes{position:relative;z-index:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:16px;align-items:start}
+  .ag{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--linha);border-radius:16px;padding:15px 15px 13px;position:relative;overflow:hidden;transition:border-color .3s,transform .3s;display:flex;flex-direction:column;gap:10px}
+  .ag::before{content:'';position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,transparent,var(--cor,var(--cyan)),transparent);opacity:.5}
+  .ag:hover{border-color:rgba(124,144,172,.34);transform:translateY(-2px)}
+  .ag.live{border-color:rgba(63,217,138,.55);box-shadow:0 0 40px -18px rgba(63,217,138,.6)}
+  .ag-top{display:flex;align-items:center;gap:11px}
+  .ag-ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:21px;background:rgba(255,255,255,.03);border:1px solid var(--linha);flex-shrink:0}
+  .ag.live .ag-ico{border-color:rgba(63,217,138,.5)}
+  .ag-id{min-width:0;flex:1}.ag-id h3{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-id .cargo{font-size:9px;letter-spacing:.06em;color:var(--dim);margin-top:2px;text-transform:uppercase}
+  .ag .desc{font-size:12px;line-height:1.5;color:var(--dim);border-top:1px solid var(--linha);padding-top:9px}
+  .ag .fazendo{font-size:11px;color:var(--live);display:flex;align-items:center;gap:7px}
+  .ag .fazendo i{width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live);animation:pulsa 1.3s infinite;flex-shrink:0}
+  .badge{position:absolute;top:12px;right:12px;font-size:8px;letter-spacing:.14em;padding:3px 7px;border-radius:6px;text-transform:uppercase;color:var(--live);background:rgba(63,217,138,.12);border:1px solid rgba(63,217,138,.34);opacity:0;transition:opacity .3s}
+  .ag.live .badge{opacity:1}
+  @keyframes materializa{0%{transform:scale(.5);opacity:0;filter:brightness(1.9)}55%{transform:scale(1.08);opacity:1}100%{transform:scale(1);filter:none}}
+  .ag.entrando{animation:materializa .8s cubic-bezier(.2,.8,.2,1)}
+
+  /* skills */
+  #skills{display:flex;flex-wrap:wrap;gap:10px}
+  .skill{background:var(--card);border:1px solid var(--linha);border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:11px;min-width:200px}
+  .skill .si{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:rgba(159,123,255,.1);border:1px solid rgba(159,123,255,.3);flex-shrink:0}
+  .skill h4{font-size:13.5px;font-weight:600}.skill .cmd{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--purple)}
+  .skill p{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.4}
+
+  /* rail */
+  .rail{display:flex;flex-direction:column;gap:16px;position:sticky;top:82px}
+  .painel{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:16px 18px}
+  .ph{font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase;margin-bottom:13px;display:flex;align-items:center;gap:8px}
+  .ph .dot{width:7px;height:7px}
+  .pulso{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto}
+  .ev{display:flex;gap:10px;font-size:12px;line-height:1.4}.ev .qua{color:var(--cyan);flex-shrink:0}.ev b{color:var(--txt);font-weight:600}.ev .t{color:var(--dim);font-size:10px;margin-left:auto;white-space:nowrap}
+  .vazio{font-size:12px;color:var(--dim);line-height:1.6}
+  .conecta{background:linear-gradient(180deg,#0E141E,var(--card));border:1px solid rgba(255,179,71,.28);border-radius:16px;padding:16px 18px}
+  .conecta .ch{font-size:10px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}.conecta .ch i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .conecta p{font-size:12.5px;line-height:1.5}.conecta p b{color:var(--amber)}.conecta small{display:block;font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+  .comojog{font-size:12px;color:var(--dim);line-height:1.6}.comojog code{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--cyan);background:rgba(79,227,232,.1);border:1px solid rgba(79,227,232,.24);border-radius:5px;padding:1px 6px}
+
+  #toast{position:fixed;right:30px;top:84px;z-index:60;display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:13px;transform:translateX(140%);opacity:0;transition:transform .5s cubic-bezier(.2,.7,.2,1),opacity .5s;background:linear-gradient(180deg,#0a1512,#07100d);border:1px solid rgba(63,217,138,.5);box-shadow:0 20px 50px -22px rgba(63,217,138,.5)}
+  #toast.show{transform:none;opacity:1}#toast .em{font-size:20px}#toast b{display:block;font-size:14px;color:var(--live)}#toast span{display:block;font-size:9px;letter-spacing:.14em;color:var(--dim);margin-top:2px;text-transform:uppercase}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important}}
+  @media(max-width:940px){main{grid-template-columns:1fr}#kpis{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca"><div class="x">X</div><div><b>XPERIUN OS</b><span id="marca-sub">SEU OS</span></div></div>
+  <div class="hstatus"><span class="on"><span class="dot vivo" id="dot-vivo"></span><span id="estado">carregando</span></span><span id="relogio">--:--:--</span></div>
+</header>
+
+<div id="kpis">
+  <div class="kpi destaque"><div class="n" id="k-ag">0</div><div class="r">especialistas no seu time</div></div>
+  <div class="kpi"><div class="n" id="k-sk">0</div><div class="r">skills sob medida</div></div>
+  <div class="kpi" id="kpi-pulso"><div class="n" id="k-pulso">em repouso</div><div class="r">o time agora</div></div>
+</div>
+
+<main>
+  <section id="org">
+    <svg id="wires"></svg>
+    <div class="voce"><div class="av">👤</div><div class="t"><b>VOCÊ</b><span id="voce-sub">no comando do seu OS</span></div></div>
+    <h2 class="sec">Seu <b>time</b> · reporta a você</h2>
+    <div id="grid-agentes"></div>
+    <h2 class="sec" style="margin-top:30px">Suas <b>skills</b></h2>
+    <div id="skills"></div>
+  </section>
+  <aside class="rail">
+    <div class="painel"><div class="ph"><span class="dot vivo"></span>Pulso · o que tá rolando</div><div class="pulso" id="pulso"><div class="vazio">Nada agora. Quando você pedir algo pro seu time no Claude Code, aparece aqui em tempo real.</div></div></div>
+    <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="fonte">—</p><small id="fonte-sub"></small></div>
+    <div class="painel"><div class="ph">Como colocar o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente aqui é invocável de verdade.</div></div>
+  </aside>
+</main>
+
+<div id="toast"><div class="em">🎖️</div><div><b id="toast-nome">—</b><span id="toast-sub">entregou</span></div></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
+const PALETA=['#4FE3E8','#9F7BFF','#E8C9A0','#FFB347','#3FD1B8','#5A7FFF','#FF8FA3','#8FE388'];
+const corIdx=i=>PALETA[i%PALETA.length];
+let jaMaterializou=false, vistos=new Set();
+
+function relogio(){ const d=new Date(); $('#relogio').textContent=d.toLocaleTimeString('pt-BR'); }
+setInterval(relogio,1000); relogio();
+
+// desenha as linhas de report de VOCÊ pra cada agente (e acende as "hot")
+function wires(){
+  const svg=$('#wires'), org=$('#org').getBoundingClientRect(), v=$('.voce').getBoundingClientRect();
+  const cards=[...document.querySelectorAll('.ag')];
+  svg.innerHTML=''; if(!cards.length) return;
+  const x0=v.left-org.left+v.width/2, y0=v.bottom-org.top;
+  cards.forEach(el=>{
+    const r=el.getBoundingClientRect(), x1=r.left-org.left+r.width/2, y1=r.top-org.top, my=(y0+y1)/2;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',`M${x0},${y0} C${x0},${my} ${x1},${my} ${x1},${y1}`);
+    if(el.classList.contains('live')){ p.classList.add('hot'); p.style.strokeDasharray='7 7'; }
+    svg.appendChild(p);
+  });
+}
+window.addEventListener('resize',wires);
+
+function render(d){
+  $('#estado').textContent=d.ativo?'time trabalhando':'no ar';
+  $('#dot-vivo').classList.toggle('vivo',true);
+  const nome=(d.perfil&&d.perfil.nome)||''; $('#voce-sub').textContent=nome?('CEO · '+nome):'no comando do seu OS';
+  $('#k-ag').textContent=(d.agentes||[]).length;
+  $('#k-sk').textContent=(d.skills||[]).length;
+  const ativo=d.ativo; $('#k-pulso').textContent=ativo?'trabalhando':'em repouso';
+  $('#kpi-pulso').classList.toggle('viva',ativo);
+
+  // agentes (org)
+  const g=$('#grid-agentes');
+  g.innerHTML=(d.agentes||[]).map((a,i)=>`
+    <div class="ag ${a.live?'live':''} ${jaMaterializou?'':'entrando'}" style="--cor:${corIdx(i)};animation-delay:${i*90}ms" data-slug="${esc(a.slug)}">
+      <div class="badge">no ar</div>
+      <div class="ag-top"><div class="ag-ico">${a.ic||'•'}</div><div class="ag-id"><h3>${esc(a.nome)}</h3><div class="cargo">especialista sob medida</div></div></div>
+      <div class="desc">${esc((a.desc||'').slice(0,150))}</div>
+      ${a.fazendo?`<div class="fazendo"><i></i>${esc(a.fazendo)}</div>`:''}
+    </div>`).join('') || '<div class="vazio">Seu time ainda não foi montado. Rode o Genesis (sobe o localhost).</div>';
+
+  // skills
+  $('#skills').innerHTML=(d.skills||[]).map(s=>`
+    <div class="skill"><div class="si">${s.ic||'⚡'}</div><div><h4>${esc(s.nome)} <span class="cmd">${esc(s.cmd||('/'+s.slug))}</span></h4><p>${esc((s.desc||'').slice(0,80))}</p></div></div>`).join('') || '<div class="vazio">Sem skills ainda.</div>';
+  if((d.skills||[])[0]) $('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
+
+  // fonte
+  const f=d.fonte||{}; $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`; $('#fonte-sub').textContent=f.sub||'';
+
+  // pulso (feed de atividade)
+  const p=$('#pulso');
+  if((d.pulso||[]).length){
+    p.innerHTML=d.pulso.map(e=>`<div class="ev"><span class="qua">▸</span><div><b>${esc(e.agente||'time')}</b> ${esc(e.acao||'')}</div><span class="t">${esc(e.quando||'')}</span></div>`).join('');
+  }
+  jaMaterializou=true;
+  requestAnimationFrame(wires);
+
+  // toast quando um agente novo entra em ação
+  (d.agentes||[]).forEach(a=>{ if(a.live && !vistos.has(a.slug)){ vistos.add(a.slug); toast(a.nome); } if(!a.live) vistos.delete(a.slug); });
+}
+function toast(nome){ const t=$('#toast'); $('#toast-nome').textContent=nome; $('#toast-sub').textContent='trabalhando pra você'; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
+
+// dados de demo (o publish tira do build do aluno)
+
+async function tick(){
+  try{ const r=await fetch('/api/painel'); render(await r.json()); }
+  catch(e){ $('#estado').textContent='offline'; }
+}
+tick(); setInterval(tick, 3000);
+</script>
+</body>
+</html>

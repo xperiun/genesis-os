@@ -1,0 +1,12 @@
+# O OS que o comprador gera nasce na RAIZ. É conteúdo dele, não versiona. Assim um
+# git pull de melhoria do .genesis/ nunca conflita com o OS de quem já montou.
+/.claude/
+/contexto/
+/producao/
+/meu-os.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.scratch/
