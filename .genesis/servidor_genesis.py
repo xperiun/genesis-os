@@ -18,6 +18,7 @@ from threading import Lock, Thread, Timer
 from flask import Flask, jsonify, request, send_file
 
 AQUI = Path(__file__).resolve().parent
+PAGES = AQUI / "pages"  # os HTML das views moram em .genesis/pages/ (reorg 2026-07-10)
 # genesis_motor viaja junto no template (mesma pasta); no layout de dev mora em ../nucleo
 for cand in (AQUI, AQUI.parent / "nucleo"):
     if (cand / "genesis_motor.py").exists():
@@ -46,18 +47,18 @@ def _guarda_host():
 
 @app.get("/")
 def home():
-    return send_file(AQUI / "genesis.html")
+    return send_file(PAGES / "genesis.html")
 
 
 @app.get("/pronto")
 def pronto():
-    return send_file(AQUI / "pronto.html")
+    return send_file(PAGES / "pronto.html")
 
 
 @app.get("/painel")
 def painel():
     """A superfície VISUALIZAR: o OS do comprador como agência viva (time real + pulso)."""
-    return send_file(AQUI / "painel.html")
+    return send_file(PAGES / "painel.html")
 
 
 @app.get("/api/painel")
@@ -69,32 +70,32 @@ def api_painel():
 
 @app.get("/dashboard")
 def v_dashboard():
-    return send_file(AQUI / "dashboard.html")
+    return send_file(PAGES / "dashboard.html")
 
 
 @app.get("/agentes")
 def v_agentes():
-    return send_file(AQUI / "agentes.html")
+    return send_file(PAGES / "agentes.html")
 
 
 @app.get("/tasks")
 def v_tasks():
-    return send_file(AQUI / "tasks.html")
+    return send_file(PAGES / "tasks.html")
 
 
 @app.get("/contextos")
 def v_contextos():
-    return send_file(AQUI / "contextos.html")
+    return send_file(PAGES / "contextos.html")
 
 
 @app.get("/skills")
 def v_skills():
-    return send_file(AQUI / "skills.html")
+    return send_file(PAGES / "skills.html")
 
 
 @app.get("/integracoes")
 def v_integracoes():
-    return send_file(AQUI / "integracoes.html")
+    return send_file(PAGES / "integracoes.html")
 
 
 # --- APIs do painel: detalhe do agente, chat, layout do canvas -------------------

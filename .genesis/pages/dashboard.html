@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
+     View "Painel" do shell do OS do comprador: overview limpo (contadores, perfil, pulso
+     ao vivo, fonte a conectar, como colocar o time pra trabalhar). Os agentes NÃO se
+     repetem aqui (moram na view "Meu time"/canvas). Lê /api/painel. Servido em /dashboard. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Painel · Meu OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0A0D12; --surface-1:#10151C; --surface-2:#161C25; --surface-3:#1D2530;
+    --line:#212934; --line-hud:rgba(83,231,234,.20);
+    --text:#E6ECF2; --text-dim:#93A0AD; --text-muted:#58646F;
+    --cyan:#53E7EA; --cyan-deep:#1C6E77;
+    --amber:#E0A44C; --amber-glow:#F5C97A;
+    --live:#56C8B0; --warn:#E0A44C; --error:#D2685E; --info:#53E7EA;
+    --panel-bg:linear-gradient(180deg,rgba(22,28,37,.7),rgba(16,21,28,.7));
+    --panel-glow:inset 0 0 30px -20px rgba(83,231,234,.4),0 8px 24px -14px rgba(0,0,0,.6);
+    --r-sm:4px; --r-md:8px; --r-lg:12px;
+    --fs-micro:10px; --fs-meta:12px; --fs-body:14px; --fs-emph:15px; --fs-card:17px; --fs-title:20px; --fs-detail:24px; --fs-hero:34px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  *{scrollbar-width:thin;scrollbar-color:var(--surface-3) transparent}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:5px}
+  ::-webkit-scrollbar-thumb:hover{background:#2b3542}
+  html,body{min-height:100%}
+  body{background:var(--void);color:var(--text);font-family:"Space Grotesk",system-ui,sans-serif;
+    font-size:var(--fs-body);line-height:1.5;-webkit-font-smoothing:antialiased;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(110% 70% at 84% 4%, rgba(83,231,234,.05) 0%, transparent 44%),
+      radial-gradient(90% 90% at 6% 102%, rgba(224,164,76,.045) 0%, transparent 56%);
+    box-shadow:inset 0 0 220px rgba(0,0,0,.5);animation:mistDrift 24s ease-in-out infinite alternate}
+  @keyframes mistDrift{from{background-position:0% 0%,0% 0%;opacity:.9}to{background-position:4% -3%,-3% 2%;opacity:1}}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(83,231,234,1) 1px,transparent 1px),linear-gradient(90deg,rgba(83,231,234,1) 1px,transparent 1px);
+    background-size:56px 56px,56px 56px;opacity:.03}
+  body>*{position:relative;z-index:1}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @media(prefers-reduced-motion:reduce){body::before{animation:none}.dot.vivo{animation:none}}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 30px;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,rgba(16,21,28,.85),rgba(10,13,18,.6));backdrop-filter:blur(8px)}
+  header h1{font-size:var(--fs-title);font-weight:600;letter-spacing:.01em}
+  header h1 span{font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-muted);display:block;margin-top:3px;text-transform:uppercase}
+  .hstatus{display:flex;align-items:center;gap:16px}
+  .sys-pill{display:flex;align-items:center;gap:9px;padding:6px 13px;border-radius:7px;
+    background:var(--surface-2);border:1px solid var(--line-hud);
+    font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);
+    box-shadow:inset 0 0 16px -12px rgba(83,231,234,.6);white-space:nowrap}
+  .sys-pill b{color:var(--live);font-weight:500}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--text-muted);flex:0 0 7px}
+  .dot.vivo{background:var(--live);box-shadow:0 0 9px var(--live);animation:pulse 2.4s infinite}
+  #relogio{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-emph);color:var(--cyan);
+    letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 0 16px rgba(83,231,234,.35)}
+
+  #kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:22px 30px 4px}
+  .kpi{position:relative;background:var(--panel-bg);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:15px 17px 14px;box-shadow:var(--panel-glow);transition:border-color .2s}
+  .kpi:hover{border-color:#2b333b}
+  .kpi.warm{border-color:var(--line-hud)}
+  .kpi.warm::before,.kpi.warm::after{content:"";position:absolute;width:11px;height:11px;pointer-events:none;border:1px solid rgba(83,231,234,.5)}
+  .kpi.warm::before{top:7px;left:7px;border-right:none;border-bottom:none}
+  .kpi.warm::after{bottom:7px;right:7px;border-left:none;border-top:none}
+  .kpi .lab{display:flex;align-items:center;gap:7px;font-size:var(--fs-micro);letter-spacing:.13em;
+    text-transform:uppercase;color:var(--text-muted);font-weight:500}
+  .kpi .lab .tick{width:5px;height:5px;background:var(--cyan);flex:0 0 5px;box-shadow:0 0 6px rgba(83,231,234,.7)}
+  .kpi .n{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:var(--fs-hero);line-height:1;
+    margin-top:11px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--text);
+    display:flex;align-items:baseline;gap:8px}
+  .kpi .n small{font-size:var(--fs-meta);font-weight:500;color:var(--text-muted)}
+  .kpi .under{height:1px;margin-top:11px;background:linear-gradient(90deg,rgba(83,231,234,.4),transparent)}
+  .kpi.destaque .under{background:linear-gradient(90deg,rgba(224,164,76,.45),transparent)}
+  .kpi .r{font-size:var(--fs-meta);color:var(--text-dim);margin-top:9px}
+  .kpi.viva .n{color:var(--live)}
+  .kpi.destaque .n{color:var(--amber-glow);font-weight:700}
+  #k-pulso{font-size:var(--fs-detail);font-weight:600}
+
+  main{display:grid;grid-template-columns:1fr 340px;gap:22px;padding:18px 30px 46px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:20px}
+  .panel{position:relative;background:var(--panel-bg);border:1px solid var(--line-hud);border-radius:var(--r-lg);
+    box-shadow:var(--panel-glow);overflow:hidden;padding:18px 20px}
+  .brk{position:absolute;width:12px;height:12px;pointer-events:none;border:1px solid rgba(83,231,234,.45);z-index:3}
+  .brk.tl{top:6px;left:6px;border-right:none;border-bottom:none}
+  .brk.br{bottom:6px;right:6px;border-left:none;border-top:none}
+  .p-label{display:flex;align-items:center;gap:8px;font-size:var(--fs-micro);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--text-dim);font-weight:500;margin-bottom:14px}
+  .p-label .tick{width:6px;height:6px;background:var(--cyan);flex:0 0 6px;box-shadow:0 0 6px rgba(83,231,234,.7)}
+  .p-label.warm .tick{background:var(--amber);box-shadow:0 0 6px rgba(224,164,76,.7)}
+  .p-label.warm{color:var(--text-dim)}
+  .p-label .dot{margin-left:0}
+  h2.sec{font-weight:500;font-size:var(--fs-micro);letter-spacing:.16em;color:var(--text-dim);margin:0 0 12px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  h2.sec .tick{width:6px;height:6px;background:var(--cyan);flex:0 0 6px;box-shadow:0 0 6px rgba(83,231,234,.7)}
+  h2.sec b{color:var(--text)}
+  .perfil-nome{font-size:var(--fs-detail);font-weight:600;margin-bottom:12px;color:var(--text)}
+  .perfil-lista{display:flex;flex-direction:column;gap:9px}
+  .perfil-lista div{font-size:var(--fs-body);line-height:1.5;color:var(--text-dim);padding-left:17px;position:relative}
+  .perfil-lista div::before{content:'';position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px rgba(83,231,234,.6)}
+  .pulso{display:flex;flex-direction:column;gap:0;max-height:360px;overflow-y:auto}
+  .ev{display:flex;gap:13px;align-items:flex-start;padding:9px 0;position:relative}
+  .ev .node{flex:0 0 12px;display:flex;justify-content:center;padding-top:5px;position:relative}
+  .ev .node::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--surface-3);border:1.5px solid var(--cyan-deep);z-index:2}
+  .ev:not(:last-child) .node::after{content:"";position:absolute;top:14px;bottom:-9px;width:1px;background:rgba(83,231,234,.16)}
+  .ev .cb{flex:1;min-width:0;font-size:var(--fs-meta);line-height:1.45;color:var(--text-dim)}
+  .ev .cb b{color:var(--text);font-weight:500}
+  .ev .t{font-family:"IBM Plex Mono",monospace;color:var(--cyan);font-size:var(--fs-micro);white-space:nowrap;flex:0 0 auto;padding-top:4px}
+  .vazio{font-size:var(--fs-meta);color:var(--text-muted);line-height:1.6}
+  .rail{display:flex;flex-direction:column;gap:18px;position:sticky;top:82px}
+  .conecta{position:relative;background:linear-gradient(180deg,rgba(224,164,76,.06),rgba(16,21,28,.72));
+    border:1px solid rgba(224,164,76,.32);border-radius:var(--r-lg);padding:17px 19px;overflow:hidden}
+  .conecta .ch{font-size:var(--fs-micro);letter-spacing:.14em;color:var(--amber-glow);text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:8px;font-weight:500}
+  .conecta .ch i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);flex:0 0 6px}
+  .conecta p{font-size:var(--fs-body);line-height:1.5;color:var(--text)}
+  .conecta p b{color:var(--amber-glow)}
+  .conecta small{display:block;font-size:var(--fs-meta);color:var(--text-muted);margin-top:9px;line-height:1.5}
+  .comojog{font-size:var(--fs-meta);color:var(--text-dim);line-height:1.65}
+  .comojog b{color:var(--text)}
+  .comojog code{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--cyan);
+    background:rgba(83,231,234,.1);border:1px solid rgba(83,231,234,.24);border-radius:var(--r-sm);padding:1px 6px}
+  .ir-time{display:inline-flex;align-items:center;gap:7px;margin-top:13px;font-size:var(--fs-meta);color:var(--cyan);cursor:pointer}
+  .ir-time:hover{text-decoration:underline}
+  @media(max-width:900px){main{grid-template-columns:1fr}#kpis{grid-template-columns:1fr 1fr}.rail{position:static}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel<span>Meu OS · sala de controle</span></h1>
+  <div class="hstatus">
+    <span class="sys-pill"><span class="dot vivo" id="dot"></span>Status <b id="estado">carregando</b></span>
+    <span id="relogio">--:--:--</span>
+  </div>
+</header>
+
+<div id="kpis">
+  <div class="kpi destaque warm"><div class="lab"><span class="tick"></span>especialistas no time</div><div class="n" id="k-ag">0</div><div class="under"></div><div class="r">o seu time montado</div></div>
+  <div class="kpi"><div class="lab"><span class="tick"></span>skills sob medida</div><div class="n" id="k-sk">0</div><div class="under"></div><div class="r">automações do seu OS</div></div>
+  <div class="kpi" id="kpi-pulso"><div class="lab"><span class="tick"></span>o time agora</div><div class="n" id="k-pulso">repouso</div><div class="under"></div><div class="r">estado do sistema</div></div>
+</div>
+
+<main>
+  <div class="col">
+    <section class="panel" id="perfil-card">
+      <span class="brk tl"></span><span class="brk br"></span>
+      <h2 class="sec"><span class="tick"></span>Quem <b>você</b> é</h2>
+      <div class="perfil-nome" id="perfil-nome">—</div>
+      <div class="perfil-lista" id="perfil-lista"></div>
+    </section>
+    <section class="panel">
+      <span class="brk tl"></span><span class="brk br"></span>
+      <div class="p-label"><span class="tick"></span>Pulso · o que tá rolando</div>
+      <div class="pulso" id="pulso"><div class="vazio">Nada agora. Quando você pedir algo pro seu time no Claude Code, aparece aqui em tempo real.</div></div>
+    </section>
+  </div>
+  <aside class="rail">
+    <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="fonte">—</p><small id="fonte-sub"></small></div>
+    <div class="panel"><div class="p-label"><span class="tick"></span>Como pôr o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente é invocável de verdade.<div class="ir-time" onclick="parent.location.hash='agentes'">ver e conversar com o time →</div></div></div>
+  </aside>
+</main>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const DEMO=/[?&]demo/.test(location.search);
+function relogio(){$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR');}
+setInterval(relogio,1000);relogio();
+
+function render(d){
+  const ativo=d.ativo;
+  $('#estado').textContent=ativo?'time trabalhando':'no ar';
+  $('#estado').style.color=ativo?'var(--live)':'var(--text-dim)';
+  $('#dot').classList.toggle('vivo',true);
+  $('#k-ag').textContent=(d.agentes||[]).length;
+  $('#k-sk').textContent=(d.skills||[]).length;
+  $('#k-pulso').textContent=ativo?'trabalhando':'repouso';
+  $('#kpi-pulso').classList.toggle('viva',ativo);
+  const p=d.perfil||{}, resumo=p.resumo||[];
+  $('#perfil-nome').textContent=p.nome||'Seu OS';
+  $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${esc(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
+  const f=d.fonte||{};
+  $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`;
+  $('#fonte-sub').textContent=f.sub||'';
+  if((d.skills||[])[0])$('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
+  const pu=$('#pulso');
+  if((d.pulso||[]).length){
+    pu.innerHTML=d.pulso.map(e=>`<div class="ev"><div class="node"></div><div class="cb"><b>${esc(e.agente||'time')}</b> ${esc(e.acao||'')}</div><span class="t">${esc(e.quando||'')}</span></div>`).join('');
+  }
+}
+const MOCK={ativo:true,perfil:{nome:'Analista de dados, dashboards Power BI',resumo:['Analista de dados numa empresa média','Monta dashboards em Power BI','Trava na fila da engenharia pra liberar dado']},
+  agentes:[{},{},{},{}],skills:[{cmd:'/nova-view'},{},{}],
+  fonte:{titulo:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views.'},
+  pulso:[{agente:'Desbloqueador de Dados',acao:'montou a view de faturamento',quando:'agora'},{agente:'Arquiteto Power BI',acao:'ajustou as medidas DAX',quando:'2min'}]};
+async function tick(){
+  if(DEMO){render(MOCK);return;}
+  try{render(await (await fetch('/api/painel')).json());}catch(e){$('#estado').textContent='offline';$('#estado').style.color='var(--error)';}
+}
+tick();setInterval(tick,4000);
+</script>
+</body>
+</html>

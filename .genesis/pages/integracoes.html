@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
+     View "Integrações" do shell: o status das conexões do OS do comprador (o cérebro
+     Claude Code na assinatura dele, a fonte de dados, o knowledge base, o time). Nunca
+     expõe segredo, só conectado/faltando. Lê /api/integracoes. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Integrações · Meu OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0A0D12; --surface-1:#10151C; --surface-2:#161C25; --surface-3:#1D2530;
+    --line:#212934; --line-hud:rgba(83,231,234,.20);
+    --text:#E6ECF2; --text-dim:#93A0AD; --text-muted:#58646F;
+    --cyan:#53E7EA; --cyan-deep:#1C6E77;
+    --amber:#E0A44C; --amber-glow:#F5C97A;
+    --live:#56C8B0; --warn:#E0A44C; --error:#D2685E;
+    --panel-bg:linear-gradient(180deg,rgba(22,28,37,.7),rgba(16,21,28,.7));
+    --panel-glow:inset 0 0 30px -20px rgba(83,231,234,.4),0 8px 24px -14px rgba(0,0,0,.6);
+    --r-sm:4px; --r-md:8px; --r-lg:12px;
+    --fs-micro:10px; --fs-meta:12px; --fs-body:14px; --fs-emph:15px; --fs-card:17px; --fs-title:20px; --fs-detail:24px; --fs-hero:34px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  *{scrollbar-width:thin;scrollbar-color:var(--surface-3) transparent}
+  ::-webkit-scrollbar{width:9px}::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:5px}
+  html,body{min-height:100%}
+  body{background:var(--void);color:var(--text);font-family:"Space Grotesk",system-ui,sans-serif;
+    font-size:var(--fs-body);line-height:1.5;-webkit-font-smoothing:antialiased;position:relative}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(110% 70% at 84% 4%, rgba(83,231,234,.05) 0%, transparent 44%),
+      radial-gradient(90% 90% at 6% 102%, rgba(224,164,76,.04) 0%, transparent 56%);
+    box-shadow:inset 0 0 220px rgba(0,0,0,.5)}
+  body>*{position:relative;z-index:1}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @media(prefers-reduced-motion:reduce){.st.ok i{animation:none}}
+  header{padding:15px 30px;border-bottom:1px solid var(--line)}
+  header h1{font-size:var(--fs-title);font-weight:600}
+  header h1 span{font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-muted);display:block;margin-top:3px;text-transform:uppercase}
+  main{max-width:860px;padding:26px 30px}
+  .grid{display:grid;gap:12px}
+  .con{position:relative;display:flex;align-items:flex-start;gap:15px;background:var(--panel-bg);
+    border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--panel-glow);padding:16px 18px;transition:border-color .2s}
+  .con:hover{border-color:var(--line-hud)}
+  .con .ic{width:44px;height:44px;border-radius:var(--r-md);display:grid;place-items:center;font-size:21px;flex-shrink:0;background:var(--surface-1);border:1px solid var(--line)}
+  .con .c{flex:1;min-width:0}
+  .con .nome{font-size:var(--fs-card);font-weight:600;display:flex;align-items:center;gap:10px}
+  .con .sub{font-size:var(--fs-meta);color:var(--text-dim);line-height:1.5;margin-top:6px}
+  .st{font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;font-weight:500}
+  .st.ok{color:var(--live);background:rgba(86,200,176,.1);border:1px solid rgba(86,200,176,.35)}
+  .st.no{color:var(--amber-glow);background:rgba(224,164,76,.1);border:1px solid rgba(224,164,76,.3)}
+  .st i{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 7px currentColor}
+  .st.ok i{animation:pulse 2.4s infinite}
+  .nota{margin-top:22px;position:relative;background:linear-gradient(180deg,rgba(83,231,234,.04),rgba(16,21,28,.72));
+    border:1px solid var(--line-hud);border-radius:var(--r-lg);padding:16px 19px;font-size:var(--fs-body);line-height:1.6;color:var(--text-dim)}
+  .nota b{color:var(--text)}
+  .nota code{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-meta);color:var(--cyan);background:rgba(83,231,234,.1);border:1px solid rgba(83,231,234,.22);border-radius:var(--r-sm);padding:1px 6px}
+</style>
+</head>
+<body>
+<header><h1>Integrações<span>As conexões do seu OS</span></h1></header>
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="nota">Seu OS roda no <b>Claude Code da sua assinatura</b>. Não tem chave de API paga, não tem mensalidade de plataforma. Pra conectar sua fonte de dados de verdade, descreva ela em <code>contexto/fonte.md</code> ou solte os documentos em <code>contexto/referencia/</code> (na aba Contexto). O time passa a enxergar seu número.</div>
+</main>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const DEMO=/[?&]demo/.test(location.search);
+const MOCK={conexoes:[
+  {chave:'cerebro',ic:'🧠',ok:true,nome:'Claude Code',sub:'O motor do chat e dos builds do time. Roda na SUA assinatura, R$ 0 de token de API.'},
+  {chave:'fonte',ic:'🗄️',ok:true,nome:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views (42 lojas, Oracle).'},
+  {chave:'knowledge',ic:'📚',ok:true,nome:'Knowledge base (1 doc)',sub:'Os documentos do seu negócio em contexto/referencia/. O time e o chat usam como verdade.'},
+  {chave:'time',ic:'❖',ok:true,nome:'4 agentes · 3 skills',sub:'Seu time montado pelo Genesis, invocável de verdade no Claude Code.'},
+]};
+function render(d){
+  $('#grid').innerHTML=(d.conexoes||[]).map(c=>`
+    <div class="con"><div class="ic">${esc(c.ic||'•')}</div>
+      <div class="c"><div class="nome">${esc(c.nome)}</div><div class="sub">${esc(c.sub)}</div></div>
+      <span class="st ${c.ok?'ok':'no'}"><i></i>${c.ok?'conectado':'faltando'}</span></div>`).join('');
+}
+async function tick(){
+  if(DEMO){render(MOCK);return;}
+  try{render(await (await fetch('/api/integracoes')).json());}catch(e){$('#grid').innerHTML='<div class="con"><div class="c"><div class="sub">offline</div></div></div>';}
+}
+tick();
+</script>
+</body>
+</html>

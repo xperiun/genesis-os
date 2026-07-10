@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
+     Painel do OS do comprador, SHELL puro: sidebar (marca + arc reactor + nav) + uma view
+     por iframe. O router troca a view por hash sem recarregar. Cada view é self-contained
+     (dashboard, agentes, tasks, contextos, skills, integracoes).
+     SEM o X (o orb de voz é só do founder): aqui o home é o Painel. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Meu OS · Sala de Controle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0A0D12; --surface-1:#10151C; --surface-2:#161C25; --surface-3:#1D2530;
+  --line:#212934; --line-hud:rgba(83,231,234,.20);
+  --text:#E6ECF2; --text-dim:#93A0AD; --text-muted:#58646F;
+  --cyan:#53E7EA; --cyan-deep:#1C6E77;
+  --amber:#E0A44C; --amber-glow:#F5C97A;
+  --live:#56C8B0; --warn:#E0A44C; --error:#D2685E; --info:#53E7EA;
+  --panel-bg:linear-gradient(180deg,rgba(22,28,37,.7),rgba(16,21,28,.7));
+  --panel-glow:inset 0 0 30px -20px rgba(83,231,234,.4),0 8px 24px -14px rgba(0,0,0,.6);
+  --r-sm:4px; --r-md:8px; --r-lg:12px;
+  --fs-micro:10px; --fs-meta:12px; --fs-body:14px; --fs-emph:15px; --fs-card:17px; --fs-title:20px; --fs-detail:24px; --fs-hero:34px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+*{scrollbar-width:thin;scrollbar-color:var(--surface-3) transparent}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#2b3542}
+html,body{height:100%}
+body{
+  background:var(--void); color:var(--text);
+  font-family:"Space Grotesk",system-ui,sans-serif;
+  font-size:var(--fs-body); line-height:1.5; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* névoa dupla âmbar/cyan com drift lento + vinheta (fica atrás do iframe) */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(110% 70% at 84% 4%, rgba(83,231,234,.055) 0%, transparent 44%),
+    radial-gradient(90% 90% at 10% 102%, rgba(224,164,76,.05) 0%, transparent 56%);
+  box-shadow:inset 0 0 240px rgba(0,0,0,.5);
+  animation:mistDrift 24s ease-in-out infinite alternate;
+}
+@keyframes mistDrift{from{background-position:0% 0%,0% 0%;opacity:.9}to{background-position:4% -3%,-3% 2%;opacity:1}}
+a{color:inherit;text-decoration:none}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes coreBreath{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.08);filter:brightness(1.16)}}
+@media (prefers-reduced-motion:reduce){
+  body::before{animation:none}
+  .core-amber,.ring-rot,.ring-rot-rev{animation:none !important}
+}
+
+.app{position:relative;z-index:2;display:flex;height:100vh}
+
+/* ---------- SIDEBAR ---------- */
+.side{
+  width:230px;flex:0 0 auto;display:flex;flex-direction:column;
+  padding:18px 15px 16px;border-right:1px solid var(--line);
+  background:linear-gradient(180deg,var(--surface-1),rgba(10,13,18,.5));
+  overflow-y:auto;z-index:30}
+.side-brand{display:flex;align-items:center;gap:12px;padding:0 4px 18px}
+.reactor-wrap{position:relative;width:52px;height:52px;flex:0 0 52px;display:grid;place-items:center}
+.reactor-svg{position:absolute;width:52px;height:52px;overflow:visible;z-index:2}
+.ring-rot{transform-origin:26px 26px;animation:spin 60s linear infinite}
+.ring-rot-rev{transform-origin:26px 26px;animation:spin 34s linear infinite reverse}
+.core-amber{position:absolute;width:20px;height:20px;border-radius:50%;z-index:3;
+  background:radial-gradient(circle,#F5C97A 0%,#E0A44C 34%,transparent 72%);
+  animation:coreBreath 4s ease-in-out infinite}
+.brand-name{font-weight:600;font-size:var(--fs-card);letter-spacing:.5px;color:var(--text);line-height:1.1}
+.brand-kicker{font-size:var(--fs-micro);letter-spacing:.18em;text-transform:uppercase;color:var(--cyan-deep);margin-top:3px}
+
+.side-nav{display:flex;flex-direction:column;gap:2px;margin-top:16px}
+.side-nav a{
+  display:flex;align-items:center;gap:12px;padding:8.5px 11px;border-radius:8px;
+  color:var(--text-dim);text-decoration:none;font-size:var(--fs-body);font-weight:400;cursor:pointer;
+  position:relative;transition:all .22s cubic-bezier(.22,1,.36,1)}
+.side-nav a svg{width:16px;height:16px;flex:0 0 16px;stroke:currentColor;stroke-width:1.6;fill:none}
+.side-nav a:hover{color:var(--text);background:var(--surface-2)}
+.side-nav a.active{color:var(--text);background:linear-gradient(90deg,rgba(83,231,234,.07),transparent 65%)}
+.side-nav a.active svg{stroke:var(--cyan)}
+.side-nav a.active::before{
+  content:"";position:absolute;left:-15px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;
+  background:var(--cyan);box-shadow:0 0 12px -1px rgba(83,231,234,.75)}
+
+.side-rodape{margin-top:auto;font-size:var(--fs-micro);color:var(--text-muted);
+  padding:14px 8px 4px;letter-spacing:.06em;line-height:1.7}
+.side-rodape b{color:var(--amber-glow);font-weight:500}
+
+/* ---------- CONTENT / VIEWS ---------- */
+.content{flex:1 1 auto;height:100vh;overflow:hidden;position:relative}
+.view{display:none;height:100%}
+.view.active{display:block}
+.view iframe{width:100%;height:100%;border:0;display:block;background:var(--void)}
+
+@media(max-width:720px){
+  .side{width:58px;padding:14px 6px}
+  .side-brand{justify-content:center;padding:0 0 14px}
+  .side-brand>div:last-child{display:none}
+  .side-nav a{justify-content:center;padding:11px 0;gap:0}
+  .side-nav a span{display:none}
+  .side-rodape{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-brand">
+      <div class="reactor-wrap">
+        <svg class="reactor-svg" viewBox="0 0 52 52">
+          <g class="ring-rot"><circle cx="26" cy="26" r="24" fill="none" stroke="#53E7EA" stroke-width=".8" stroke-opacity=".3" stroke-dasharray="2 6"/></g>
+          <g class="ring-rot-rev">
+            <circle cx="26" cy="26" r="19.5" fill="none" stroke="#53E7EA" stroke-width=".8" stroke-opacity=".45"/>
+            <g stroke="#53E7EA" stroke-width="1" stroke-opacity=".6">
+              <line x1="26" y1="3.5" x2="26" y2="7"/><line x1="26" y1="45" x2="26" y2="48.5"/>
+              <line x1="3.5" y1="26" x2="7" y2="26"/><line x1="45" y1="26" x2="48.5" y2="26"/>
+            </g>
+          </g>
+          <circle cx="26" cy="26" r="15" fill="none" stroke="#53E7EA" stroke-width=".6" stroke-opacity=".4" stroke-dasharray="1 3"/>
+        </svg>
+        <div class="core-amber"></div>
+      </div>
+      <div>
+        <div class="brand-name">MEU OS</div>
+        <div class="brand-kicker">Sala de Controle</div>
+      </div>
+    </div>
+    <nav class="side-nav">
+      <a href="#painel" data-view="painel" class="active">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg><span>Painel</span></a>
+      <a href="#agentes" data-view="agentes">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Meu time</span></a>
+      <a href="#tasks" data-view="tasks">
+        <svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg><span>Tarefas</span></a>
+      <a href="#contextos" data-view="contextos">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V5M8 10h8M8 14h5"/></svg><span>Contexto</span></a>
+      <a href="#skills" data-view="skills">
+        <svg viewBox="0 0 24 24"><path d="m12 3 2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg><span>Skills</span></a>
+      <a href="#integracoes" data-view="integracoes">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h4a2 2 0 0 1 2 2V14M6.5 10v4a2 2 0 0 0 2 2H14"/></svg><span>Integrações</span></a>
+    </nav>
+    <div class="side-rodape">Montado pelo <b>Genesis</b>.<br>Roda na sua assinatura.</div>
+  </aside>
+  <div class="content">
+    <div class="view active" id="v-painel"><iframe data-src="/dashboard" title="Painel"></iframe></div>
+    <div class="view" id="v-agentes"><iframe data-src="/agentes" title="Meu time"></iframe></div>
+    <div class="view" id="v-tasks"><iframe data-src="/tasks" title="Tarefas"></iframe></div>
+    <div class="view" id="v-contextos"><iframe data-src="/contextos" title="Contexto"></iframe></div>
+    <div class="view" id="v-skills"><iframe data-src="/skills" title="Skills"></iframe></div>
+    <div class="view" id="v-integracoes"><iframe data-src="/integracoes" title="Integrações"></iframe></div>
+  </div>
+</div>
+<script>
+'use strict';
+const VIEWS = ['painel','agentes','tasks','contextos','skills','integracoes'];
+const DEMO = /[?&]demo/.test(location.search);   // /painel?demo cascateia pra todas as views
+function irPara(view){
+  if(!VIEWS.includes(view)) view='painel';
+  document.querySelectorAll('.side-nav a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===view));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+view));
+  const f=document.querySelector('#v-'+view+' iframe');
+  if(f && !f.getAttribute('src')){                       // lazy load (+ propaga ?demo)
+    let s=f.dataset.src; if(DEMO)s+=(s.includes('?')?'&':'?')+'demo';
+    f.setAttribute('src', s);
+  }
+  if(location.hash!=='#'+view) history.replaceState(null,'','#'+view);
+}
+document.querySelectorAll('.side-nav a[data-view]').forEach(a=>
+  a.addEventListener('click',e=>{e.preventDefault();irPara(a.dataset.view);}));
+window.addEventListener('hashchange',()=>irPara(location.hash.replace('#','')));
+irPara(location.hash.replace('#','') || 'painel');
+</script>
+</body>
+</html>

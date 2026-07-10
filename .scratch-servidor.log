@@ -1,0 +1,25 @@
+Genesis Studio no ar: http://localhost:7799/
+O seu OS vai nascer em: C:\Users\karpa\Claude\projects\xperiun-os\producao\genesis-studio
+ * Serving Flask app 'genesis'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:7799
+Press CTRL+C to quit
+127.0.0.1 - - [10/Jul/2026 18:38:08] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:08] "POST /api/genesis/passo HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:17] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:17] "GET /painel HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:17] "GET /dashboard HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:18] "GET /favicon.svg HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:50] "GET /painel?demo HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:50] "GET /dashboard?demo HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:38:50] "GET /favicon.svg HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:59:59] "GET /agentes?demo HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 18:59:59] "GET /api/painel/layout HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 19:00:21] "GET /?demo HTTP/1.1" 200 -
+127.0.0.1 - - [10/Jul/2026 19:00:22] "GET /favicon.svg HTTP/1.1" 304 -
+127.0.0.1 - - [10/Jul/2026 19:00:22] "GET /favicon.svg HTTP/1.1" 304 -
+127.0.0.1 - - [10/Jul/2026 19:00:22] "GET /favicon.svg HTTP/1.1" 304 -
+127.0.0.1 - - [10/Jul/2026 19:00:22] "GET /favicon.svg HTTP/1.1" 304 -
+127.0.0.1 - - [10/Jul/2026 19:00:23] "GET /favicon.svg HTTP/1.1" 304 -
+127.0.0.1 - - [10/Jul/2026 19:05:35] "GET / HTTP/1.1" 200 -
