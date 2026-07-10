@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!-- View "Painel" do shell do OS do comprador: overview limpo (contadores, perfil, pulso
+     ao vivo, fonte a conectar, como colocar o time pra trabalhar). Os agentes NÃO se
+     repetem aqui (moram na view "Meu time"/canvas). Lê /api/painel. Servido em /dashboard. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Painel · Meu OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cyan:#4FE3E8;--gold:#E8C9A0;--amber:#FFB347;--purple:#9F7BFF;--live:#3FD98A;
+    --txt:#DFE8F2;--dim:#7C90AC;--bg:#04070C;--card:#0A0F16;--card2:#0C121B;--linha:rgba(124,144,172,.16)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  *{scrollbar-width:thin;scrollbar-color:rgba(124,144,172,.28) transparent}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(124,144,172,.26);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(79,227,232,.42);background-clip:padding-box}
+  html,body{min-height:100%}
+  body{background:radial-gradient(1100px 600px at 82% -8%,rgba(159,123,255,.09),transparent 60%),
+    radial-gradient(900px 520px at 8% 4%,rgba(79,227,232,.07),transparent 55%),var(--bg);
+    color:var(--txt);font-family:'Space Grotesk','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 30px;
+    border-bottom:1px solid var(--linha);position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,rgba(4,7,12,.94),rgba(4,7,12,.72));backdrop-filter:blur(10px)}
+  header h1{font-size:15px;font-weight:700;letter-spacing:.02em}
+  header h1 span{font-size:9px;letter-spacing:.28em;color:var(--dim);display:block;margin-top:3px;text-transform:uppercase}
+  .hstatus{display:flex;align-items:center;gap:16px;font-size:10.5px;letter-spacing:.18em;color:var(--dim)}
+  .hstatus .on{display:flex;align-items:center;gap:8px;color:var(--txt)}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--dim)}
+  .dot.vivo{background:var(--live);box-shadow:0 0 9px var(--live);animation:pulsa 2s infinite}
+  #relogio{font-variant-numeric:tabular-nums;color:var(--txt)}
+
+  #kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:22px 30px 4px}
+  .kpi{background:var(--card);border:1px solid var(--linha);border-radius:14px;padding:16px 18px}
+  .kpi .n{font-weight:700;font-size:30px;line-height:1;display:flex;align-items:baseline;gap:8px}
+  .kpi .n small{font-size:12px;font-weight:500;color:var(--dim)}
+  .kpi .r{font-size:10px;letter-spacing:.2em;color:var(--dim);margin-top:9px;text-transform:uppercase}
+  .kpi.viva .n{color:var(--live)}.kpi.destaque .n{color:var(--gold)}
+
+  main{display:grid;grid-template-columns:1fr 340px;gap:22px;padding:18px 30px 46px;align-items:start}
+  h2.sec{font-weight:700;font-size:12px;letter-spacing:.26em;color:var(--dim);margin:4px 2px 14px;text-transform:uppercase}
+  h2.sec b{color:var(--txt)}
+  .col{display:flex;flex-direction:column;gap:20px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:18px 20px}
+  .perfil-nome{font-size:18px;font-weight:700;margin-bottom:10px}
+  .perfil-lista{display:flex;flex-direction:column;gap:8px}
+  .perfil-lista div{font-size:13px;line-height:1.5;color:var(--txt);padding-left:16px;position:relative}
+  .perfil-lista div::before{content:'';position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:.6}
+  .ph{font-size:10px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .ph .dot{width:7px;height:7px}
+  .pulso{display:flex;flex-direction:column;gap:11px;max-height:360px;overflow-y:auto}
+  .ev{display:flex;gap:11px;font-size:12.5px;line-height:1.45}
+  .ev .qua{color:var(--cyan);flex-shrink:0}.ev b{color:var(--txt);font-weight:600}
+  .ev .t{color:var(--dim);font-size:10px;margin-left:auto;white-space:nowrap}
+  .vazio{font-size:12.5px;color:var(--dim);line-height:1.6}
+  .rail{display:flex;flex-direction:column;gap:18px;position:sticky;top:78px}
+  .conecta{background:linear-gradient(180deg,#0E141E,var(--card));border:1px solid rgba(255,179,71,.28);border-radius:16px;padding:17px 19px}
+  .conecta .ch{font-size:10px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+  .conecta .ch i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+  .conecta p{font-size:13px;line-height:1.5}.conecta p b{color:var(--amber)}
+  .conecta small{display:block;font-size:11.5px;color:var(--dim);margin-top:9px;line-height:1.5}
+  .comojog{font-size:12.5px;color:var(--dim);line-height:1.65}
+  .comojog b{color:var(--txt)}
+  .comojog code{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--cyan);
+    background:rgba(79,227,232,.1);border:1px solid rgba(79,227,232,.24);border-radius:5px;padding:1px 6px}
+  .ir-time{display:inline-flex;align-items:center;gap:7px;margin-top:13px;font-size:12px;color:var(--cyan);cursor:pointer}
+  .ir-time:hover{text-decoration:underline}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important}}
+  @media(max-width:900px){main{grid-template-columns:1fr}#kpis{grid-template-columns:1fr 1fr}.rail{position:static}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel<span>Meu OS · sala de controle</span></h1>
+  <div class="hstatus"><span class="on"><span class="dot vivo" id="dot"></span><span id="estado">carregando</span></span><span id="relogio">--:--:--</span></div>
+</header>
+
+<div id="kpis">
+  <div class="kpi destaque"><div class="n" id="k-ag">0</div><div class="r">especialistas no seu time</div></div>
+  <div class="kpi"><div class="n" id="k-sk">0</div><div class="r">skills sob medida</div></div>
+  <div class="kpi" id="kpi-pulso"><div class="n" id="k-pulso">repouso</div><div class="r">o time agora</div></div>
+</div>
+
+<main>
+  <div class="col">
+    <section class="card" id="perfil-card">
+      <h2 class="sec">Quem <b>você</b> é</h2>
+      <div class="perfil-nome" id="perfil-nome">—</div>
+      <div class="perfil-lista" id="perfil-lista"></div>
+    </section>
+    <section class="card">
+      <div class="ph"><span class="dot vivo"></span>Pulso · o que tá rolando</div>
+      <div class="pulso" id="pulso"><div class="vazio">Nada agora. Quando você pedir algo pro seu time no Claude Code, aparece aqui em tempo real.</div></div>
+    </section>
+  </div>
+  <aside class="rail">
+    <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="fonte">—</p><small id="fonte-sub"></small></div>
+    <div class="card"><div class="ph">Como colocar o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente é invocável de verdade.<div class="ir-time" onclick="parent.location.hash='agentes'">❖ ver e conversar com o time →</div></div></div>
+  </aside>
+</main>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const DEMO=/[?&]demo/.test(location.search);
+function relogio(){$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR');}
+setInterval(relogio,1000);relogio();
+
+function render(d){
+  const ativo=d.ativo;
+  $('#estado').textContent=ativo?'time trabalhando':'no ar';
+  $('#k-ag').textContent=(d.agentes||[]).length;
+  $('#k-sk').textContent=(d.skills||[]).length;
+  $('#k-pulso').textContent=ativo?'trabalhando':'repouso';
+  $('#kpi-pulso').classList.toggle('viva',ativo);
+  const p=d.perfil||{}, resumo=p.resumo||[];
+  $('#perfil-nome').textContent=p.nome||'Seu OS';
+  $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${esc(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
+  const f=d.fonte||{};
+  $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`;
+  $('#fonte-sub').textContent=f.sub||'';
+  if((d.skills||[])[0])$('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
+  const pu=$('#pulso');
+  if((d.pulso||[]).length){
+    pu.innerHTML=d.pulso.map(e=>`<div class="ev"><span class="qua">▸</span><div><b>${esc(e.agente||'time')}</b> ${esc(e.acao||'')}</div><span class="t">${esc(e.quando||'')}</span></div>`).join('');
+  }
+}
+const MOCK={ativo:true,perfil:{nome:'Analista de dados, dashboards Power BI',resumo:['Analista de dados numa empresa média','Monta dashboards em Power BI','Trava na fila da engenharia pra liberar dado']},
+  agentes:[{},{},{},{}],skills:[{cmd:'/nova-view'},{},{}],
+  fonte:{titulo:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views.'},
+  pulso:[{agente:'Desbloqueador de Dados',acao:'montou a view de faturamento',quando:'agora'},{agente:'Arquiteto Power BI',acao:'ajustou as medidas DAX',quando:'2min'}]};
+async function tick(){
+  if(DEMO){render(MOCK);return;}
+  try{render(await (await fetch('/api/painel')).json());}catch(e){$('#estado').textContent='offline';}
+}
+tick();setInterval(tick,4000);
+</script>
+</body>
+</html>

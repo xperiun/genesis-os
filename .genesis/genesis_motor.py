@@ -469,18 +469,45 @@ def _subagent_md(nome_id, description, body):
 
 # ---- Gerador: o Claude Code do comprador PESQUISA e ESCREVE o time do zero ----
 
-def _prompt_gerador(perfil, agentes, skills):
+def _ler_referencia(base):
+    """Lê o knowledge base que o comprador jogou em contexto/referencia/ (md/txt/csv), pra a
+    montagem escrever o time JÁ sabendo do negócio real. Teto de tamanho pra não estourar o
+    prompt. Vazio se a pasta não existe ou está vazia (aí a montagem segue só pelo perfil)."""
+    from pathlib import Path as _P
+    pasta = _P(base) / "contexto" / "referencia"
+    if not pasta.is_dir():
+        return ""
+    partes, total = [], 0
+    for f in sorted(pasta.rglob("*")):
+        if f.is_file() and f.suffix.lower() in (".md", ".txt", ".csv") \
+                and f.name.lower() != "readme.md" and total < 60000:
+            try:
+                txt = f.read_text(encoding="utf-8", errors="ignore")[:20000]
+            except OSError:
+                continue
+            partes.append(f"### {f.relative_to(pasta).as_posix()}\n{txt}")
+            total += len(txt)
+    return "\n\n".join(partes)
+
+
+def _prompt_gerador(perfil, agentes, skills, referencia=""):
     lista_ag = "\n".join(
         f"- slug `{a.get('slug')}` ({a.get('nome', '')}): {_sem_html(a.get('por', ''))}"
         for a in agentes) or "- (você decide de 3 a 5 especialistas pelo perfil)"
     lista_sk = "\n".join(
         f"- slug `{s.get('slug')}` ({s.get('nome', '')}, comando {s.get('cmd', '')}): {_sem_html(s.get('desc', ''))}"
         for s in skills) or "- (você decide de 2 a 4 automações pelo perfil)"
+    kb = ""
+    if (referencia or "").strip():
+        kb = ("KNOWLEDGE BASE REAL DO COMPRADOR (documentos que ele deixou em "
+              "contexto/referencia/). USE isto pra escrever um time PRECISO pro negócio dele: "
+              "cite produtos, tom, público e fatos REAIS daqui quando fizer sentido, nunca "
+              "invente o que não está aqui.\n" + referencia.strip()[:60000] + "\n\n")
     return (
         "Você é o motor de criação do OS do comprador. Você PESQUISA na web e ESCREVE, do zero, "
         "os agentes e skills sob medida pra pessoa. Cada um é um especialista real e "
         "funcional, nada genérico de enfeite.\n\n"
-        f"PERFIL (da entrevista):\n{perfil}\n\n"
+        f"PERFIL (da entrevista):\n{perfil}\n\n{kb}"
         f"AGENTES a criar (um arquivo por slug, EXATAMENTE estes):\n{lista_ag}\n\n"
         f"SKILLS a criar (um arquivo por slug, EXATAMENTE estas):\n{lista_sk}\n\n"
         "TAREFA:\n"
@@ -600,10 +627,11 @@ def _gerar_rodada(exe, prompt):
     return _parse_blocos(texto_final or buf)
 
 
-def gerar_time(reco):
+def gerar_time(reco, referencia=""):
     """A montagem de verdade: o Claude Code do COMPRADOR pesquisa na web e ESCREVE o time
-    (agentes + skills) do zero, sob medida. Devolve [(caminho_rel, conteudo)]. [] se o CLI
-    não existe ou falha (aí instalar cai nos esboços válidos da entrevista)."""
+    (agentes + skills) do zero, sob medida, JÁ informado pelo knowledge base do comprador
+    (`referencia`, lido de contexto/referencia/). Devolve [(caminho_rel, conteudo)]. [] se o
+    CLI não existe ou falha (aí instalar cai nos esboços válidos da entrevista)."""
     exe = shutil.which("claude")
     if not exe:
         return []
@@ -612,7 +640,7 @@ def gerar_time(reco):
                and _slug(a.get("slug") or a.get("nome")) != "design-system"]
     skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)
               and _slug(s.get("slug") or s.get("cmd") or s.get("nome")) != "extrair-design-system"]
-    blocos = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills))
+    blocos = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills, referencia))
     if not blocos:
         return []
     # completude: se a resposta cortou e faltou algum slug pedido, re-pede SÓ os que
@@ -623,7 +651,7 @@ def gerar_time(reco):
     falta_ag = [a for a in agentes if _slug(a.get("slug") or a.get("nome")) not in tem_ag]
     falta_sk = [s for s in skills if _slug(s.get("slug") or s.get("cmd") or s.get("nome")) not in tem_sk]
     if falta_ag or falta_sk:
-        extra = _gerar_rodada(exe, _prompt_gerador(perfil, falta_ag, falta_sk))
+        extra = _gerar_rodada(exe, _prompt_gerador(perfil, falta_ag, falta_sk, referencia))
         vistos = {rel for rel, _ in blocos}
         blocos += [(rel, body) for rel, body in extra if rel not in vistos]
     return blocos
@@ -757,7 +785,7 @@ def instalar(reco, base):
     _mlog("Organizando o time e preparando o repositório...")
     reco = _scrub(reco) if isinstance(reco, dict) else {}  # travessão/canon fora do que grava
     _garantir_ds(reco)  # DS obrigatório ANTES de materializar
-    for sub in ("contexto", "producao", ".claude/agents", ".claude/skills"):
+    for sub in ("contexto", "contexto/referencia", "producao", ".claude/agents", ".claude/skills"):
         (base / sub).mkdir(parents=True, exist_ok=True)
     agents_dir = base / ".claude" / "agents"
     skills_dir = base / ".claude" / "skills"
@@ -774,7 +802,7 @@ def instalar(reco, base):
     # medida (o produto). Fallback: sem CLI (ou geração falha), escreve esboços VÁLIDOS
     # dos agentes/skills recomendados, pra nunca travar o onboarding.
     _mlog("Contratando os especialistas: pesquisa na web + escrita do zero.")
-    gerados = gerar_time(reco)
+    gerados = gerar_time(reco, _ler_referencia(base))
     if gerados:
         for rel, body in gerados:
             fp = base / rel
@@ -840,7 +868,7 @@ def instalar(reco, base):
         f"{n_agentes} agentes, {n_skills} skills, feitos sob medida pra você.\n\n"
         "Estrutura do seu OS:\n"
         "- `.claude/agents/`: **o seu time, como subagents reais do Claude Code** (invocáveis)\n"
-        "- `contexto/`: quem você é (o recheio: seu time entende VOCÊ)\n"
+        "- `contexto/`: quem você é. Jogue seus docs em `contexto/referencia/` ANTES de montar, o time nasce sabendo\n"
         "- `producao/`: onde as entregas do seu time caem\n"
         "- `.claude/skills/`: suas skills sob medida\n"
         "- `meu-os.json`: o manifesto do OS\n\n"
@@ -852,11 +880,25 @@ def instalar(reco, base):
         "# Quem sou eu\n\n" + "\n".join(f"- {_sem_html(e)}" for e in entendi) +
         "\n\n> Este é o recheio do seu OS: é o que faz seu time entender VOCÊ. Edite à vontade.\n",
         encoding="utf-8")
-    # contexto/fonte.md — a realidade a conectar
+    # contexto/referencia/ — o KNOWLEDGE BASE. O comprador joga os docs do negócio aqui ANTES
+    # de montar; a montagem lê e o time nasce sabendo. Fecha o gap de "dado real".
+    ref = base / "contexto" / "referencia"
+    ref.mkdir(parents=True, exist_ok=True)
+    if not (ref / "README.md").exists():
+        (ref / "README.md").write_text(
+            "# Referência (o seu knowledge base)\n\n"
+            "Jogue aqui os documentos do seu negócio (.md, .txt, .csv): quem você é, seus "
+            "produtos, seu tom de voz, seu público, seus números, seus casos. Antes de montar "
+            "(ou remontar) o time com o Genesis, o seu Claude Code LÊ esta pasta e escreve os "
+            "agentes JÁ sabendo do seu negócio, não genéricos.\n\n"
+            "Quanto mais real o material aqui, mais afiado o time sai. Sem nada aqui, o time "
+            "nasce só pelo que você contou na entrevista.\n", encoding="utf-8")
+    # contexto/fonte.md — a fonte de dados VIVA (além do knowledge estático da referencia)
     (base / "contexto" / "fonte.md").write_text(
         "# Minha fonte de dados\n\n**" + _sem_html(fonte.get("titulo", "sua fonte")) + "**\n\n" +
         _sem_html(fonte.get("sub", "")) +
-        "\n\n> Conecte aqui o que seu time deve enxergar. Sem isso, é um time bonito parado.\n",
+        "\n\n> Aqui vai a fonte de dados VIVA (planilha, API, export que atualiza). O knowledge "
+        "estático (quem você é, produtos, tom, casos) vai em `contexto/referencia/`.\n",
         encoding="utf-8")
 
     (base / "producao" / ".gitkeep").write_text("", encoding="utf-8")

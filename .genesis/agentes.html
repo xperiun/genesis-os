@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<!-- Canvas do time do OS do comprador (estilo Make/demarly): VOCÊ no topo, os agentes
+     ligados DIRETO em você (2 níveis, sem squad, o OS do aluno é uma equipe plana).
+     Zoom/pan/arrastar + chat direto com o agente (persona = o .agent.md dele, na
+     assinatura do comprador). Lê /api/painel. Servido em /agentes, dentro do shell. -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Meu time · Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--cyan:#4FE3E8;--gold:#E8C9A0;--amber:#FFB347;--purple:#9F7BFF;--live:#3FD98A;
+    --txt:#DFE8F2;--dim:#7C90AC;--bg:#04070C;--card:#0A0F16;--card2:#0C121B;--linha:rgba(124,144,172,.16)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  *{scrollbar-width:thin;scrollbar-color:rgba(124,144,172,.28) transparent}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(124,144,172,.26);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(79,227,232,.42);background-clip:padding-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:'Space Grotesk','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:radial-gradient(1100px 600px at 82% -8%,rgba(159,123,255,.10),transparent 60%),
+    radial-gradient(900px 520px at 8% 4%,rgba(79,227,232,.08),transparent 55%),var(--bg);display:flex;flex-direction:column}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  a{color:inherit;text-decoration:none}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 22px;
+    border-bottom:1px solid var(--linha);z-index:20;flex:0 0 auto;
+    background:linear-gradient(180deg,rgba(4,7,12,.96),rgba(4,7,12,.80));backdrop-filter:blur(10px)}
+  .htitulo{display:flex;align-items:center;gap:11px}
+  .htitulo b{font-weight:700;letter-spacing:.02em;font-size:15px}
+  .htitulo span{font-size:9px;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+  .htools{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--dim)}
+  .htools .seg{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--linha);border-radius:10px;padding:3px}
+  .htools button{font-family:inherit;font-size:12px;color:var(--txt);background:transparent;border:0;border-radius:7px;
+    padding:6px 11px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
+  .htools button:hover{background:rgba(124,144,172,.14)}
+  .htools button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+  .htools .zval{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;color:var(--dim);font-size:11px}
+  /* embedded no shell (iframe): esconde o título próprio, a sidebar já identifica */
+  .embedded header{justify-content:flex-end}
+  .embedded .htitulo{display:none}
+
+  #stage{position:relative;flex:1 1 auto;overflow:hidden;cursor:grab;touch-action:none}
+  #stage.panning{cursor:grabbing}
+  #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  #edges{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+  #edges path{fill:none;stroke:rgba(232,201,160,.30);stroke-width:1.6}
+  #edges path.hot{stroke:var(--live);stroke-width:2.2;filter:drop-shadow(0 0 5px rgba(63,217,138,.55))}
+
+  #dica{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:8;font-size:11px;
+    letter-spacing:.06em;color:var(--dim);background:rgba(10,15,22,.82);border:1px solid var(--linha);
+    border-radius:99px;padding:7px 15px;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .4s}
+  #dica b{color:var(--txt);font-weight:600}
+
+  .node{position:absolute;user-select:none;border-radius:15px;border:1px solid var(--linha);
+    background:linear-gradient(180deg,var(--card2),var(--card));box-shadow:0 14px 34px -22px rgba(0,0,0,.9);
+    transition:border-color .25s,box-shadow .25s;cursor:grab}
+  .node.drag{cursor:grabbing;box-shadow:0 22px 50px -18px rgba(0,0,0,.95);z-index:6}
+  .node:hover{border-color:rgba(124,144,172,.4)}
+
+  /* nó VOCÊ / CEO */
+  .node.ceo{width:240px;padding:15px 18px;display:flex;align-items:center;gap:14px;border-color:rgba(232,201,160,.34);
+    background:linear-gradient(180deg,#0E141E,var(--card));box-shadow:0 0 0 1px rgba(232,201,160,.08),0 18px 50px -24px rgba(0,0,0,.9)}
+  .node.ceo .av{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;flex-shrink:0;
+    background:radial-gradient(circle at 40% 35%,rgba(232,201,160,.22),rgba(232,201,160,.05));border:1px solid rgba(232,201,160,.4)}
+  .node.ceo b{font-size:17px;font-weight:700;display:block}
+  .node.ceo span{font-size:9px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;display:block;margin-top:4px}
+  .node.ceo small{display:block;font-size:11px;color:var(--dim);margin-top:6px;line-height:1.4;letter-spacing:0;text-transform:none}
+
+  /* nó AGENTE */
+  .node.agent{width:214px;padding:13px 14px;--cor:var(--cyan)}
+  .node.agent::before{content:'';position:absolute;inset:0 0 auto 0;height:2px;border-radius:15px 15px 0 0;
+    background:linear-gradient(90deg,transparent,var(--cor),transparent);opacity:.5}
+  .ag-top{display:flex;align-items:center;gap:11px}
+  .ag-ico{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:20px;flex-shrink:0;
+    background:rgba(255,255,255,.03);border:1px solid var(--linha)}
+  .ag-id{flex:1;min-width:0}
+  .ag-id h3{font-weight:700;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ag-id .cargo{font-size:9px;letter-spacing:.06em;color:var(--dim);margin-top:2px;text-transform:uppercase}
+  .ag-desc{font-size:11.5px;line-height:1.45;color:var(--dim);margin-top:10px;border-top:1px solid var(--linha);padding-top:9px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ag-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:10px;letter-spacing:.08em;color:var(--dim)}
+  .ag-foot .chat-hint{opacity:.7}
+  .node.agent:hover .chat-hint{color:var(--cyan);opacity:1}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--dim)}
+  .dot.vivo{background:var(--live);box-shadow:0 0 9px var(--live);animation:pulsa 1.8s infinite}
+  @keyframes pulsa{0%,100%{opacity:.45}50%{opacity:1}}
+  .node.agent.active{border-color:rgba(63,217,138,.6);box-shadow:0 0 0 1px rgba(63,217,138,.5),0 0 22px 3px rgba(63,217,138,.16)}
+  .ag-doing{margin-top:10px;padding:8px 10px;border-radius:9px;font-size:11px;line-height:1.4;color:var(--txt);
+    background:rgba(63,217,138,.08);border:1px solid rgba(63,217,138,.38)}
+  .ag-doing b{display:block;font-size:8px;letter-spacing:.2em;color:var(--live);margin-bottom:4px;text-transform:uppercase}
+
+  /* ---- gaveta de chat ---- */
+  #scrim{position:fixed;inset:0;z-index:40;background:rgba(2,4,7,.55);opacity:0;pointer-events:none;transition:opacity .3s}
+  #scrim.on{opacity:1;pointer-events:auto}
+  #chat{position:fixed;top:0;right:0;bottom:0;width:min(440px,94vw);z-index:41;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#0B111A,var(--bg));border-left:1px solid rgba(79,227,232,.24);
+    box-shadow:-30px 0 70px -30px rgba(0,0,0,.9);transform:translateX(102%);transition:transform .32s cubic-bezier(.3,.8,.3,1)}
+  #chat.open{transform:none}
+  .ch-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--linha);flex:0 0 auto}
+  .ch-head .av{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;flex-shrink:0;
+    background:rgba(79,227,232,.08);border:1px solid rgba(79,227,232,.28)}
+  .ch-head .who{flex:1;min-width:0}
+  .ch-head .who b{font-weight:700;font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ch-head .who span{display:block;font-size:10px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ch-x{width:32px;height:32px;border-radius:9px;border:1px solid var(--linha);background:transparent;color:var(--dim);
+    cursor:pointer;font-size:16px;display:grid;place-items:center;flex-shrink:0}
+  .ch-x:hover{color:var(--txt);border-color:rgba(124,144,172,.4)}
+  .ch-body{flex:1 1 auto;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+  .ch-empty{margin:auto;text-align:center;color:var(--dim);font-size:12.5px;line-height:1.7;max-width:280px}
+  .ch-empty .em{font-size:30px;display:block;margin-bottom:10px;opacity:.8}
+  .msg{max-width:88%;font-size:13.5px;line-height:1.6;padding:11px 14px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word}
+  .msg.user{align-self:flex-end;background:rgba(79,227,232,.12);border:1px solid rgba(79,227,232,.26);border-bottom-right-radius:5px;color:var(--txt)}
+  .msg.bot{align-self:flex-start;background:var(--card2);border:1px solid var(--linha);border-bottom-left-radius:5px;color:var(--txt)}
+  .msg.bot.pend{color:var(--dim)}
+  .msg.bot.pend .th{display:inline-block;animation:pensa 1.2s infinite}
+  @keyframes pensa{0%,100%{opacity:.35}50%{opacity:1}}
+  .ch-foot{flex:0 0 auto;padding:13px 15px;border-top:1px solid var(--linha);display:flex;gap:10px;align-items:flex-end}
+  .ch-foot textarea{flex:1;resize:none;background:var(--card);border:1px solid var(--linha);border-radius:12px;color:var(--txt);
+    font-family:inherit;font-size:13.5px;line-height:1.5;padding:11px 13px;max-height:120px;min-height:44px}
+  .ch-foot textarea:focus{outline:none;border-color:rgba(79,227,232,.45)}
+  .ch-foot .send{width:44px;height:44px;flex-shrink:0;border-radius:12px;border:0;cursor:pointer;
+    background:linear-gradient(135deg,var(--cyan),var(--purple));color:var(--bg);font-size:17px;display:grid;place-items:center}
+  .ch-foot .send:disabled{opacity:.4;cursor:default}
+  .ch-note{font-size:9px;letter-spacing:.1em;color:var(--dim);text-align:center;padding:0 15px 11px}
+  .ch-acoes{display:flex;gap:8px;padding:9px 15px 0;flex:0 0 auto}
+  .ch-acoes button{flex:1;font-family:inherit;font-size:11.5px;font-weight:600;border-radius:9px;padding:8px;cursor:pointer;border:1px solid var(--linha);background:var(--card);color:var(--txt);transition:all .15s}
+  .ch-acoes button:hover{border-color:rgba(79,227,232,.4);color:var(--cyan)}
+  .ch-acoes button.build{border-color:rgba(232,201,160,.32);color:var(--gold)}
+  .ch-acoes button.build:hover{background:rgba(232,201,160,.08)}
+  .ch-acoes button:disabled{opacity:.5;cursor:default}
+  #ctoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);z-index:70;background:var(--card2);
+    border:1px solid var(--linha);border-radius:99px;padding:9px 18px;font-size:12px;color:var(--txt);opacity:0;transition:all .3s;pointer-events:none}
+  #ctoast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001s!important;transition-duration:.05s!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="htitulo"><b>Meu time</b><span>Canvas</span></div>
+  <div class="htools mono">
+    <div class="seg">
+      <button id="btn-zout" title="Diminuir zoom">−</button>
+      <span class="zval" id="zval">100%</span>
+      <button id="btn-zin" title="Aumentar zoom">+</button>
+      <button id="btn-fit" title="Enquadrar tudo">⤢ ajustar</button>
+    </div>
+  </div>
+</header>
+
+<div id="stage">
+  <div id="world"><svg id="edges" preserveAspectRatio="none"></svg></div>
+  <div id="dica">Arraste pra mover · role pra dar zoom · clique num <b>agente</b> pra conversar</div>
+</div>
+
+<div id="scrim"></div>
+<aside id="chat" aria-label="Conversa com o agente">
+  <div class="ch-head">
+    <div class="av" id="ch-av">🤖</div>
+    <div class="who"><b id="ch-nome">—</b><span id="ch-titulo">—</span></div>
+    <button class="ch-x" id="ch-close" aria-label="Fechar">✕</button>
+  </div>
+  <div class="ch-body" id="ch-body"></div>
+  <div class="ch-acoes">
+    <button id="ch-task" title="salvar essa conversa como uma tarefa no board">▸ virar tarefa</button>
+    <button class="build" id="ch-build" title="põe o agente pra produzir isso agora (build na sua assinatura)">⚒ põe pra trabalhar</button>
+  </div>
+  <div class="ch-foot">
+    <textarea id="ch-input" rows="1" placeholder="Pergunta alguma coisa..." aria-label="Mensagem"></textarea>
+    <button class="send" id="ch-send" aria-label="Enviar">➤</button>
+  </div>
+  <div class="ch-note mono">roda na sua assinatura · custo zero de token</div>
+</aside>
+<div id="ctoast"></div>
+
+<script>
+'use strict';
+if(window.self!==window.top)document.documentElement.classList.add('embedded');
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const CORES=['#4FE3E8','#9F7BFF','#E8C9A0','#3FD1B8','#5A7FFF','#FFB347','#C47FFF','#FF9A62'];
+const DEMO=/[?&]demo/.test(location.search);
+const cssEsc=s=>window.CSS&&CSS.escape?CSS.escape(String(s)):String(s);
+
+const W={ceo:240,agent:214}, GAPX=36, ROWY=230, AGYH=172;
+const state={data:null,zoom:1,panX:0,panY:0,pos:{},size:{},drag:null,pan:null,moved:false,
+  chat:{slug:null,hist:{},busy:false}};
+
+// ---------- modelo: CEO + agentes (2 níveis) ----------
+function agentesDe(d){return (d&&d.agentes)||[];}
+function garantirPos(ags){
+  const n=ags.length, perRow=Math.min(5,Math.max(1,n));
+  const larguraLinha=perRow*(W.agent+GAPX)-GAPX, cx=larguraLinha/2;
+  if(!state.pos['ceo'])state.pos['ceo']={x:cx-W.ceo/2, y:24};
+  ags.forEach((a,i)=>{
+    const id='ag:'+a.slug;
+    if(!state.pos[id]){
+      const row=Math.floor(i/perRow), col=i%perRow;
+      const naLinha=Math.min(perRow, n-row*perRow);
+      const rw=naLinha*(W.agent+GAPX)-GAPX, x0=cx-rw/2;
+      state.pos[id]={x:x0+col*(W.agent+GAPX), y:ROWY+row*AGYH};
+    }
+  });
+}
+
+// ---------- render ----------
+function nodeHTML(nd){
+  if(nd.tipo==='ceo'){
+    const p=(state.data&&state.data.perfil)||{};
+    const nome=(p.nome||'').slice(0,52);
+    return `<div class="av">👤</div><div><b>VOCÊ</b><span>CEO do seu OS</span>${nome?`<small>${esc(nome)}</small>`:''}</div>`;
+  }
+  const a=nd.data, cor=CORES[(nd.i||0)%CORES.length];
+  return `<div class="ag-top"><div class="ag-ico">${esc(a.ic||'•')}</div>
+      <div class="ag-id"><h3>${esc(a.nome)}</h3><div class="cargo">especialista do time</div></div></div>
+    <div class="ag-desc">${esc((a.desc||'').slice(0,150)||'Especialista sob medida do seu OS.')}</div>
+    ${a.live&&a.fazendo?`<div class="ag-doing"><b>Em ação</b>${esc(a.fazendo)}</div>`:
+      `<div class="ag-foot"><span><i class="dot ${a.live?'vivo':''}" style="${a.live?'':'background:'+cor+';opacity:.5'}"></i>${a.live?'EM AÇÃO':'PRONTO'}</span><span class="chat-hint">💬 falar</span></div>`}`;
+}
+function render(){
+  const d=state.data; if(!d)return;
+  const ags=agentesDe(d);
+  garantirPos(ags);
+  const nodes=[{id:'ceo',tipo:'ceo'}].concat(ags.map((a,i)=>({id:'ag:'+a.slug,tipo:'agent',data:a,i})));
+  const world=$('#world');
+  const ids=new Set(nodes.map(n=>n.id));
+  [...world.querySelectorAll('.node')].forEach(el=>{if(!ids.has(el.dataset.id))el.remove();});
+  nodes.forEach(nd=>{
+    let el=world.querySelector('.node[data-id="'+cssEsc(nd.id)+'"]');
+    const novo=!el;
+    if(novo){el=document.createElement('div');el.dataset.id=nd.id;world.appendChild(el);}
+    el.className='node '+nd.tipo;
+    if(nd.tipo==='agent'&&nd.data.live)el.classList.add('active');
+    if(nd.tipo==='agent')el.style.setProperty('--cor',CORES[(nd.i||0)%CORES.length]);
+    el.innerHTML=nodeHTML(nd);
+    const p=state.pos[nd.id]||{x:0,y:0};
+    el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    state.size[nd.id]={w:el.offsetWidth,h:el.offsetHeight};
+  });
+  desenharEdges(ags);
+}
+function desenharEdges(ags){
+  const svg=$('#edges');
+  let maxX=0,maxY=0;
+  Object.keys(state.pos).forEach(id=>{const p=state.pos[id],s=state.size[id]||{w:214,h:110};
+    maxX=Math.max(maxX,p.x+s.w);maxY=Math.max(maxY,p.y+s.h);});
+  svg.setAttribute('width',maxX+400);svg.setAttribute('height',maxY+400);
+  const pa=state.pos['ceo'], sa=state.size['ceo']||{w:240,h:80};
+  if(!pa){svg.innerHTML='';return;}
+  const x0=pa.x+sa.w/2, y0=pa.y+sa.h;
+  svg.innerHTML=ags.map(a=>{
+    const pb=state.pos['ag:'+a.slug]; if(!pb)return '';
+    const sb=state.size['ag:'+a.slug]||{w:214,h:110};
+    const x1=pb.x+sb.w/2, y1=pb.y, my=(y0+y1)/2;
+    return `<path class="${a.live?'hot':''}" d="M${x0},${y0} C${x0},${my} ${x1},${my} ${x1},${y1}"></path>`;
+  }).join('');
+}
+
+// ---------- transform (pan/zoom) ----------
+function aplicarTransform(){
+  $('#world').style.transform=`translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+  $('#zval').textContent=Math.round(state.zoom*100)+'%';
+}
+function zoomEm(fator,cx,cy){
+  const st=$('#stage').getBoundingClientRect();
+  const mx=(cx==null?st.width/2:cx-st.left), my=(cy==null?st.height/2:cy-st.top);
+  const wx=(mx-state.panX)/state.zoom, wy=(my-state.panY)/state.zoom;
+  state.zoom=Math.min(2,Math.max(0.3,state.zoom*fator));
+  state.panX=mx-wx*state.zoom; state.panY=my-wy*state.zoom;
+  aplicarTransform();
+}
+function vistaInicial(){
+  const st=$('#stage').getBoundingClientRect();
+  let minX=1e9,maxX=-1e9,minY=1e9;
+  for(const id in state.pos){const p=state.pos[id],s=state.size[id]||{w:214,h:110};
+    if(p.x<minX)minX=p.x; if(p.x+s.w>maxX)maxX=p.x+s.w; if(p.y<minY)minY=p.y;}
+  if(minX>maxX){minX=0;maxX=800;minY=0;}
+  state.zoom=st.width<900?0.62:0.82;
+  state.panX=st.width/2-((minX+maxX)/2)*state.zoom;
+  state.panY=64-minY*state.zoom;
+  aplicarTransform();
+}
+function ajustar(){
+  let maxX=0,maxY=0,minX=1e9,minY=1e9;
+  Object.keys(state.pos).forEach(id=>{const p=state.pos[id],s=state.size[id]||{w:214,h:110};
+    minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x+s.w);maxY=Math.max(maxY,p.y+s.h);});
+  if(maxX<=0)return;
+  const st=$('#stage').getBoundingClientRect(), pad=70;
+  const zw=(st.width-pad*2)/(maxX-minX||1), zh=(st.height-pad*2)/(maxY-minY||1);
+  state.zoom=Math.min(1.1,Math.max(0.3,Math.min(zw,zh)));
+  state.panX=pad-minX*state.zoom+(st.width-pad*2-(maxX-minX)*state.zoom)/2;
+  state.panY=pad-minY*state.zoom;
+  aplicarTransform();
+}
+
+// ---------- interação ----------
+$('#stage').addEventListener('pointerdown',e=>{
+  const node=e.target.closest('.node');
+  if(node){
+    state.drag={id:node.dataset.id,el:node,sx:e.clientX,sy:e.clientY,
+      ox:state.pos[node.dataset.id].x,oy:state.pos[node.dataset.id].y};
+    state.moved=false;node.classList.add('drag');
+  }else{state.pan={sx:e.clientX,sy:e.clientY,px:state.panX,py:state.panY};$('#stage').classList.add('panning');}
+  e.target.setPointerCapture&&e.target.setPointerCapture(e.pointerId);
+});
+$('#stage').addEventListener('pointermove',e=>{
+  if(state.drag){
+    const dx=(e.clientX-state.drag.sx)/state.zoom, dy=(e.clientY-state.drag.sy)/state.zoom;
+    if(Math.abs(e.clientX-state.drag.sx)+Math.abs(e.clientY-state.drag.sy)>4)state.moved=true;
+    const p=state.pos[state.drag.id];p.x=state.drag.ox+dx;p.y=state.drag.oy+dy;
+    state.drag.el.style.left=p.x+'px';state.drag.el.style.top=p.y+'px';
+    desenharEdges(agentesDe(state.data));
+  }else if(state.pan){
+    state.panX=state.pan.px+(e.clientX-state.pan.sx);
+    state.panY=state.pan.py+(e.clientY-state.pan.sy);
+    aplicarTransform();
+  }
+});
+function fimPointer(){
+  if(state.drag){
+    state.drag.el.classList.remove('drag');
+    if(!state.moved)cliqueNo(state.drag.el);else salvarLayout();
+    state.drag=null;
+  }
+  if(state.pan){state.pan=null;$('#stage').classList.remove('panning');}
+}
+$('#stage').addEventListener('pointerup',fimPointer);
+$('#stage').addEventListener('pointercancel',fimPointer);
+$('#stage').addEventListener('wheel',e=>{e.preventDefault();zoomEm(e.deltaY<0?1.12:0.89,e.clientX,e.clientY);},{passive:false});
+function cliqueNo(el){const id=el.dataset.id; if(id.startsWith('ag:'))abrirChat(id.slice(3));}
+$('#btn-zin').onclick=()=>zoomEm(1.15);
+$('#btn-zout').onclick=()=>zoomEm(0.87);
+$('#btn-fit').onclick=ajustar;
+
+// ---------- layout persistente ----------
+let _saveT=null;
+function salvarLayout(){
+  clearTimeout(_saveT);
+  _saveT=setTimeout(()=>{fetch('/api/painel/layout',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({posicoes:state.pos})}).catch(()=>{});},400);
+}
+async function carregarLayout(){
+  try{const r=await fetch('/api/painel/layout');const j=await r.json();
+    if(j&&typeof j==='object')state.pos=Object.assign({},j,state.pos);}catch(e){}
+}
+
+// ---------- chat (não-streaming: o backend do Genesis devolve {ok,resposta}) ----------
+function abrirChat(slug){
+  const a=agentesDe(state.data).find(x=>x.slug===slug)||{};
+  state.chat.slug=slug;
+  if(!state.chat.hist[slug])state.chat.hist[slug]=[];
+  $('#ch-av').textContent=a.ic||'🤖';
+  $('#ch-nome').textContent=a.nome||slug;
+  $('#ch-titulo').textContent='especialista do seu time';
+  renderChat();
+  $('#scrim').classList.add('on');$('#chat').classList.add('open');
+  setTimeout(()=>$('#ch-input').focus(),120);
+}
+function fecharChat(){$('#scrim').classList.remove('on');$('#chat').classList.remove('open');}
+$('#ch-close').onclick=fecharChat;$('#scrim').onclick=fecharChat;
+function renderChat(){
+  const h=state.chat.hist[state.chat.slug]||[], body=$('#ch-body');
+  if(!h.length){body.innerHTML=`<div class="ch-empty"><span class="em">💬</span>Fala direto com ${esc($('#ch-nome').textContent)}.<br>Ele responde na voz dele, com o contexto do seu OS no bolso.</div>`;return;}
+  body.innerHTML=h.map(m=>{
+    if(m.role==='agente'&&m.pend&&!m.content)return `<div class="msg bot pend"><span class="th">pensando...</span></div>`;
+    return `<div class="msg ${m.role==='voce'?'user':'bot'}">${esc(m.content)}</div>`;
+  }).join('');
+  body.scrollTop=body.scrollHeight;
+}
+async function enviar(){
+  const inp=$('#ch-input'), txt=inp.value.trim();
+  if(!txt||state.chat.busy)return;
+  const slug=state.chat.slug, h=state.chat.hist[slug];
+  h.push({role:'voce',content:txt});
+  const bot={role:'agente',content:'',pend:true};h.push(bot);
+  inp.value='';inp.style.height='auto';state.chat.busy=true;$('#ch-send').disabled=true;renderChat();
+  try{
+    if(DEMO){await new Promise(r=>setTimeout(r,700));bot.content='(modo demo) É aqui que eu responderia ao vivo, na sua assinatura, com o método do meu .agent.md.';}
+    else{
+      const r=await fetch(`/api/agente/${encodeURIComponent(slug)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mensagens:h.filter(m=>m!==bot).map(m=>({role:m.role,texto:m.content}))})});
+      const j=await r.json();
+      bot.content=j.ok?j.resposta:('('+(j.erro||'não consegui responder agora')+')');
+    }
+  }catch(e){bot.content='Não consegui falar com o Claude Code agora. O servidor tá rodando?';}
+  bot.pend=false;state.chat.busy=false;$('#ch-send').disabled=false;renderChat();$('#ch-input').focus();
+}
+$('#ch-send').onclick=enviar;
+$('#ch-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar();}});
+$('#ch-input').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px';});
+
+// ações do chat: virar tarefa (backlog) / põe pra trabalhar (build na assinatura)
+function toastC(t){const el=$('#ctoast');el.textContent=t;el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2400);}
+function ultimaPergunta(){const h=state.chat.hist[state.chat.slug]||[];for(let i=h.length-1;i>=0;i--)if(h[i].role==='voce')return h[i].content;return '';}
+$('#ch-task').onclick=async()=>{
+  const slug=state.chat.slug;if(!slug)return;const q=ultimaPergunta();if(!q){toastC('manda uma mensagem primeiro');return;}
+  try{await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({titulo:q,agente:slug,fonte:'chat',status:'backlog',ativo:false,detalhe:'Da conversa com '+$('#ch-nome').textContent})});
+    toastC('virou tarefa no board ✓');}catch(e){toastC('não deu');}
+};
+$('#ch-build').onclick=async()=>{
+  const slug=state.chat.slug;if(!slug)return;const q=ultimaPergunta();if(!q){toastC('diz o que quer produzir primeiro');return;}
+  const btn=$('#ch-build');btn.disabled=true;
+  try{await fetch('/api/build/iniciar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tarefa:'Use o agente '+$('#ch-nome').textContent+' ('+slug+') do time. Produza: '+q})});
+    toastC('mandei pro build, na sua assinatura ⚒');}catch(e){toastC('não deu');}
+  setTimeout(()=>btn.disabled=false,1600);
+};
+setTimeout(()=>{const d=$('#dica');if(d)d.style.opacity='0';},6000);
+
+// ---------- dado ----------
+const MOCK={perfil:{nome:'Analista de dados, dashboards Power BI'},ativo:true,
+  agentes:[
+    {slug:'desbloqueador-de-dados',nome:'Desbloqueador de Dados',ic:'🔓',desc:'Cria views no banco pra você sair da fila da engenharia.',live:true,fazendo:'montando a view do financeiro'},
+    {slug:'arquiteto-power-bi',nome:'Arquiteto Power BI',ic:'📊',desc:'Modelagem estrela e DAX pro dashboard financeiro.',live:false},
+    {slug:'tradutor-de-negocio',nome:'Tradutor de Negócio',ic:'🗺️',desc:'Traduz o pedido da área em requisito claro, pra você não refazer.',live:false},
+    {slug:'design-system',nome:'Guardião Visual',ic:'🎨',desc:'Mantém todo dashboard visualmente coeso.',live:false},
+  ]};
+async function puxar(primeira){
+  let d;
+  try{d=DEMO?MOCK:await (await fetch('/api/painel')).json();}catch(e){d=MOCK;}
+  state.data=d;
+  render();
+  if(primeira)vistaInicial();
+}
+(async function init(){
+  await carregarLayout();
+  await puxar(true);
+  setInterval(()=>{if(!state.drag&&!state.pan&&!state.chat.busy)puxar(false);}, DEMO?9000:15000);
+})();
+</script>
+</body>
+</html>

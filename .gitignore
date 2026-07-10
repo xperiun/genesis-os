@@ -3,10 +3,17 @@
 # Exceção: .claude/commands/ é do template (o comando /config-os), esse fica versionado.
 /.claude/*
 !/.claude/commands/
-/contexto/
+# contexto/ é do comprador, não versiona. EXCEÇÃO: a pasta contexto/referencia/ já vem
+# no template (com o README que explica o que jogar lá), pra o comprador soltar os docs
+# do negócio ANTES de montar, sem ter que criar pasta. O que ele soltar lá segue ignorado.
+/contexto/*
+!/contexto/referencia/
+/contexto/referencia/*
+!/contexto/referencia/README.md
 /producao/
 /meu-os.json
 /.genesis-atividade.jsonl
+/.genesis-canvas-layout.json
 
 # python
 __pycache__/
