@@ -277,24 +277,29 @@ def _montar_prompt(historico):
     return "\n".join(linhas)
 
 
-def _claude_cli(prompt, system):
+def _claude_cli(prompt, system, tools=None, cwd=None):
     """O cérebro do produto: roda um turno pelo Claude Code do COMPRADOR (a assinatura
     dele, R$ 0, sem chave paga), headless via `claude -p`. Devolve o texto do modelo,
-    ou None se o CLI não existe / falha (aí o passo cai no próximo cérebro)."""
+    ou None se o CLI não existe / falha (aí o passo cai no próximo cérebro).
+
+    tools: allowed tools separadas por espaço. None/"" = SÓ CONVERSA (entrevista, sem ler
+      arquivo). "Read Grep Glob" = leitura read-only (o chat de agente lê o repo do aluno).
+    cwd: pasta de trabalho. None = tempdir neutro (entrevista, não puxa CLAUDE.md). O repo do
+      comprador pro chat, pra o agente achar os arquivos dele (producao/, contexto/, ...)."""
     exe = shutil.which("claude")
     if not exe:
         return None
     import tempfile
+    # --system-prompt = override total (persona limpa, sem o prompt de agente-de-código por
+    # baixo). SEM --bare: --bare forçaria ANTHROPIC_API_KEY e mataria a assinatura.
+    cmd = [exe, "-p", "--output-format", "json", "--system-prompt", system]
+    cmd += (["--allowedTools", tools] if tools else ["--tools", ""])  # tools na allowlist auto-aprovam em headless
+    run_cwd = str(cwd) if cwd else tempfile.gettempdir()
     try:
         proc = subprocess.run(
-            # --system-prompt (override total, persona limpa de entrevistador, sem o
-            # prompt de agente-de-código por baixo) + --tools "" (só conversa, sem ler
-            # arquivo do repo do comprador). cwd neutro pra não puxar CLAUDE.md nenhum.
-            # SEM --bare: --bare forçaria ANTHROPIC_API_KEY e mataria a assinatura.
-            [exe, "-p", "--output-format", "json", "--system-prompt", system, "--tools", ""],
-            input=prompt, capture_output=True, text=True,
+            cmd, input=prompt, capture_output=True, text=True,
             encoding="utf-8", errors="ignore", timeout=180,
-            cwd=tempfile.gettempdir())
+            cwd=run_cwd)
     except Exception:
         return None
     if proc.returncode != 0 or not (proc.stdout or "").strip():

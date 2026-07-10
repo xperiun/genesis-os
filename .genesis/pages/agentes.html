@@ -57,7 +57,10 @@
 
   #stage{position:relative;flex:1 1 auto;overflow:hidden;cursor:grab;touch-action:none;z-index:1}
   #stage.panning{cursor:grabbing}
-  #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  /* will-change SÓ durante o gesto (.moving): promovido permanente, o browser rasteriza
+     o mundo em 1x e estica -> texto embaça no zoom>1. Ao parar, remove -> re-rasteriza nítido. */
+  #world{position:absolute;top:0;left:0;transform-origin:0 0}
+  #world.moving{will-change:transform}
   #edges{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
   #edges path{fill:none;stroke:rgba(83,231,234,.24);stroke-width:1.4}
   #edges path.hot{stroke:var(--live);stroke-width:2.2;filter:drop-shadow(0 0 5px rgba(86,200,176,.55))}
@@ -277,8 +280,13 @@ function desenharEdges(ags){
 }
 
 // ---------- transform (pan/zoom) ----------
+let _wcT=null;
 function aplicarTransform(){
-  $('#world').style.transform=`translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+  const w=$('#world');
+  w.style.transform=`translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+  // promove só durante o movimento; 200ms após o último transform, remove pra re-rasterizar nítido
+  w.classList.add('moving');
+  clearTimeout(_wcT); _wcT=setTimeout(()=>w.classList.remove('moving'),200);
   $('#zval').textContent=Math.round(state.zoom*100)+'%';
 }
 function zoomEm(fator,cx,cy){
