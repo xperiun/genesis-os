@@ -268,15 +268,29 @@ def puxar_site(base, url):
             "resumo": gm._sem_html(texto)[:180]}
 
 
+def _bonus_slugs():
+    """Slugs das skills-brinde (fixas, nossas), lidas do manifesto .genesis/bonus-skills.json.
+    São as skills que já vêm prontas no template (ex: /site-reveal-cinematico), separadas das
+    sob medida que o Genesis escreve na entrevista."""
+    f = Path(__file__).resolve().parent / "bonus-skills.json"
+    try:
+        return {s.get("slug") for s in json.loads(f.read_text(encoding="utf-8"))}
+    except Exception:
+        return set()
+
+
 def skills(base):
-    """Skills do OS (.claude/skills/*/SKILL.md), nome+desc do frontmatter."""
+    """Skills do OS (.claude/skills/*/SKILL.md), nome+desc do frontmatter. Marca `bonus` nas
+    skills-brinde (manifesto) pra o catálogo mostrá-las separadas das sob medida."""
     sdir = Path(base) / ".claude" / "skills"
+    bonus = _bonus_slugs()
     out = []
     if sdir.is_dir():
         for d in sorted(x for x in sdir.glob("*") if x.is_dir()):
             nome, desc = gm._ler_fm(d / "SKILL.md") if (d / "SKILL.md").exists() else ("", "")
             out.append({"slug": d.name, "nome": nome or d.name, "desc": desc,
-                        "cmd": "/" + d.name, "obrigatoria": d.name == "extrair-design-system"})
+                        "cmd": "/" + d.name, "obrigatoria": d.name == "extrair-design-system",
+                        "bonus": d.name in bonus})
     return out
 
 

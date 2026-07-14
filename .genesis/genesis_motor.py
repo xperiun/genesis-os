@@ -386,50 +386,9 @@ Consistência visual é o que separa output profissional de amador. Por isso est
 # Skill OBRIGATÓRIA de extração de DS (simétrica ao agente). Self-contained: salva no OS do
 # comprador (contexto/), sem nenhum path do xperiun-os. É a ferramenta REAL por trás do
 # Guardião Visual (o agente para de ser só persona, ganha um processo que roda de verdade).
-_DS_SKILL_MD = """---
-name: extrair-design-system
-description: >-
-  Extrai o design system de uma referência (HTML, URL ou print) e gera um
-  design-system.html completo: tokens de cor com hex exato, tipografia, spacing, radius,
-  sombras, componentes e contraste WCAG AA, preservando as classes e animações do
-  original. Salva o DS mestre do seu OS em contexto/design-system.html. Use quando pedirem
-  "extrai o design system disso", "cria um style guide", ou passarem um HTML/URL/print.
----
-
-# Extrair design system (skill obrigatória do OS)
-
-Você é o Guardião Visual. Recebe uma referência e produz o design system do OS: um
-`design-system.html` que é o CONTRATO entre design e implementação, não um moodboard.
-
-## Input
-Um caminho de arquivo HTML, uma URL, ou uma imagem/print de referência.
-
-## Processo
-1. Leia a referência DE VERDADE, nunca chute cor. HTML/URL: leia e tire os valores reais
-   (hex, fontes, px). Print: leia a imagem e tire os hex específicos.
-2. Extraia os tokens: cores (hex exatos: fundo, superfície, texto, dim, acento(s), borda,
-   estados), tipografia (famílias, escala, pesos, line-height), spacing, radius, sombras,
-   e os componentes/padrões (botões, cards, inputs, badges) com as classes e animações do
-   original preservadas (não aproxime, copie o comportamento).
-3. Gere o `design-system.html` com estas seções: tokens (`:root`), tipografia renderizada,
-   swatches de cor (hex + nome do token), componentes (cada um renderizado + a classe que o
-   produz), regras do/dont, acessibilidade (contraste WCAG AA nos pares texto/fundo, com os
-   ratios), e a origem (de onde extraiu + a data).
-4. Valide o contraste WCAG AA (4.5:1 texto normal, 3:1 texto grande). Par que falhar, ajuste
-   o token e anote.
-
-## Output
-- **DS mestre do OS:** `contexto/design-system.html`, a fonte de verdade pra todo entregável.
-- **Referência extraída:** cópia em `contexto/design/refs/<slug-da-fonte>/design-system.html`.
-- Já existe um `contexto/design-system.html`? Não sobrescreva cego: compare e evolua
-  mantendo o que já estava coerente.
-
-## Regras
-- Um DS é ~20% tokens e ~80% padrões que vivem juntos. Documente os padrões, não só os tokens.
-- Nunca invente cor nova nem gradient fora da paleta extraída.
-- Todo entregável visual do OS ancora nos tokens deste DS. Antes de dar algo como pronto,
-  confira contra ele: cores, tipografia, spacing, coerência entre páginas.
-"""
+# (a skill obrigatória /extrair-design-system saiu daqui: agora mora versionada em
+#  .genesis/skills-core/extrair-design-system/ e o instalar() a copia como as demais skills
+#  de template — versão completa de 11 seções, não mais o stub inline. Ver .genesis/CLAUDE.md.)
 
 _RE_FM = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.DOTALL)
 
@@ -847,13 +806,23 @@ def instalar(reco, base):
         (agents_dir / "design-system.md").write_text(
             _sem_canon(_sem_traves(_DS_AGENTE_MD)), encoding="utf-8")
     ger_ag.add("design-system")
-    # e a skill /extrair-design-system, simétrica ao agente (a ferramenta REAL do Guardião)
-    _dsk = skills_dir / "extrair-design-system"
-    if not (_dsk / "SKILL.md").exists():
-        _dsk.mkdir(parents=True, exist_ok=True)
-        (_dsk / "SKILL.md").write_text(
-            _sem_canon(_sem_traves(_DS_SKILL_MD)), encoding="utf-8")
-    ger_sk.add("extrair-design-system")
+    # skills de TEMPLATE (não sob medida), copiadas do repo pro OS na montagem (overwrite,
+    # sempre fresquinhas). CORE = obrigatórias (ex: /extrair-design-system, a ferramenta REAL
+    # do Guardião Visual); BÔNUS = brindes (ex: /site-reveal-cinematico). Moram versionadas em
+    # .genesis/skills-core|skills-bonus/. As CORE entram no manifesto de gerados (contam e são
+    # geridas no reinstall); as BÔNUS ficam de fora (template puro, sobrevivem intactas).
+    # Ver .genesis/CLAUDE.md §Skills bônus. O catálogo/reveal marca via .genesis/bonus-skills.json.
+    for _tdir, _mark in ((base / ".genesis" / "skills-core", ger_sk),
+                         (base / ".genesis" / "skills-bonus", None)):
+        if not _tdir.is_dir():
+            continue
+        for _s in sorted(x for x in _tdir.glob("*") if x.is_dir()):
+            _dst = skills_dir / _s.name
+            if _dst.exists():
+                shutil.rmtree(_dst)
+            shutil.copytree(_s, _dst)
+            if _mark is not None:
+                _mark.add(_s.name)
 
     # guarda-corpo: o hook do pulso (o painel só fica vivo de verdade com isto materializado)
     (base / ".claude" / "settings.json").write_text(

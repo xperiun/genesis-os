@@ -100,6 +100,7 @@ const MOCK_SK=[
   {slug:'nova-view',nome:'Nova view',ic:'⚡',cmd:'/nova-view',desc:'Gera a view SQL a partir da necessidade do dashboard.'},
   {slug:'modelo-financeiro',nome:'Modelo financeiro',ic:'📊',cmd:'/modelo-financeiro',desc:'Monta o modelo estrela do financeiro no Power BI.'},
   {slug:'extrair-design-system',nome:'Extrair design system',ic:'🎨',cmd:'/extrair-design-system',desc:'Extrai o design system de uma referência e gera o DS do seu OS.',obrigatoria:true},
+  {slug:'site-reveal-cinematico',nome:'Site com Reveal Cinematográfico',ic:'🎬',cmd:'/site-reveal-cinematico',desc:'Cria um site scroll-driven com reveal cinematográfico (estilo Apple). Ótimo pra portfólio: mostrar seus dashboards num site premium.',bonus:true},
 ];
 const MOCK_SKC={
   'nova-view':'---\nname: nova-view\n---\n\n# Nova view\n\nGera a view SQL a partir da necessidade do dashboard.\n\n## Processo\n1. Entende a métrica pedida\n2. Desenha a view mínima\n3. Valida performance e documenta\n',
@@ -124,7 +125,7 @@ function renderLista(){
     <div class="sk ${atual&&atual.slug===s.slug?'sel':''}" data-slug="${esc(s.slug)}">
       <div class="sk-top"><div class="sk-ico">${esc(s.ic||'⚡')}</div>
         <div class="sk-id"><div class="sk-cmd">${esc(s.cmd||('/'+s.slug))}</div><div class="sk-nome">${esc(s.nome||s.slug)}</div></div>
-        ${s.obrigatoria?'<span class="sk-badge">obrig.</span>':''}</div>
+        ${s.obrigatoria?'<span class="sk-badge">obrig.</span>':''}${s.bonus?'<span class="sk-badge">bônus</span>':''}</div>
       <div class="sk-desc">${esc((s.desc||'').slice(0,140)||'Automação sob medida do seu OS.')}</div>
     </div>`).join('')||'<div class="fvazio" style="padding-top:8vh"><span class="em">◇</span>Sem skills ainda. Elas nascem quando você monta o time.</div>';
   document.querySelectorAll('.sk').forEach(el=>el.onclick=()=>abrir(el.dataset.slug));

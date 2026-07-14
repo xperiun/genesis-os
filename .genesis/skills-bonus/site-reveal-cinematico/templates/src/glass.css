@@ -1,0 +1,36 @@
+/* ===== GLASS surfaces — loaded AFTER style.css ===== */
+.glass{
+  position:relative;
+  background:rgba(18,21,25,.55);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;
+  backdrop-filter:blur(16px) saturate(1.1);
+  -webkit-backdrop-filter:blur(16px) saturate(1.1);
+  box-shadow:0 24px 60px -24px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
+  overflow:hidden;
+}
+.glass::before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(160deg,rgba(197,248,42,.06),transparent 40%);
+}
+.glass>*{position:relative;z-index:2}
+
+/* gallery cards readability over bright video frames */
+.hgallery .hslide.glass{background:rgba(12,14,18,.62)}
+.quote.glass{background:rgba(12,14,18,.55)}
+
+/* cap hover */
+.cap{transition:transform .35s var(--ease),border-color .35s,box-shadow .35s}
+.cap:hover{transform:translateY(-8px);border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  box-shadow:0 30px 70px -28px rgba(0,0,0,.8),0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
+
+/* ===== buttons ===== */
+.glass-btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:.82rem;
+  font-weight:500;letter-spacing:.02em;padding:14px 24px;border-radius:999px;cursor:none;
+  transition:transform .3s var(--ease),box-shadow .3s,background .3s,color .3s,border-color .3s}
+.glass-btn--primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0A0B0D;
+  border:1px solid var(--accent);box-shadow:0 8px 30px -8px var(--accent-glow)}
+.glass-btn--primary:hover{transform:translateY(-2px);box-shadow:0 0 0 6px var(--accent-glow),0 10px 34px -8px var(--accent-glow)}
+.glass-btn--ghost{background:rgba(18,21,25,.5);color:var(--ink);border:1px solid var(--line-2);backdrop-filter:blur(12px)}
+.glass-btn--ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+@media(max-width:900px){.glass-btn{cursor:pointer}}

@@ -1,0 +1,25 @@
+{
+  "name": "site-reveal-cinematico",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Site scroll-driven com reveal cinematográfico (vídeo scrubbed pelo scroll). Vite + GSAP + Lenis. Template da skill /site-reveal-cinematico.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "preflight": "node scripts/preflight.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verify": "node scripts/shoot.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.13"
+  }
+}

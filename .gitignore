@@ -1,6 +1,8 @@
 # O OS que o comprador gera nasce na RAIZ. É conteúdo dele, não versiona. Assim um
 # git pull de melhoria do .genesis/ nunca conflita com o OS de quem já montou.
 # Exceção: .claude/commands/ é do template (o comando /config-os), esse fica versionado.
+# (Skills bônus moram versionadas em .genesis/skills-bonus/ e o instalar() as copia pra
+# .claude/skills/ na montagem — por isso .claude/skills/ segue 100% ignorado aqui.)
 /.claude/*
 !/.claude/commands/
 # contexto/ é do comprador, não versiona. EXCEÇÃO: a pasta contexto/referencia/ já vem

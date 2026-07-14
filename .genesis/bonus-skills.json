@@ -1,0 +1,9 @@
+[
+  {
+    "slug": "site-reveal-cinematico",
+    "nome": "Site com Reveal Cinematográfico",
+    "ic": "🎬",
+    "cmd": "/site-reveal-cinematico",
+    "desc": "Cria um site onde <b>cada rolagem avança um frame de um vídeo</b> (estilo Apple product reveal). Ótimo pra portfólio: um site premium pra mostrar seus dashboards e projetos."
+  }
+]

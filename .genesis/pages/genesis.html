@@ -127,6 +127,10 @@
   .skill .si{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:16px;flex-shrink:0;background:var(--surface-1);border:1px solid var(--line)}
   .skill h4{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-meta);font-weight:500;color:var(--cyan)}
   .skill p{font-size:var(--fs-meta);line-height:1.5;color:var(--text-dim);margin-top:6px} .skill p b{color:var(--text);font-weight:500}
+  .skill.bonus{border-color:rgba(224,164,76,.35);box-shadow:inset 0 0 30px -22px rgba(224,164,76,.55)}
+  .skill.bonus .si{border-color:rgba(224,164,76,.4);background:rgba(224,164,76,.09)}
+  .tag-bonus{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber-glow);background:rgba(224,164,76,.12);border:1px solid rgba(224,164,76,.4);border-radius:5px;padding:2px 6px;margin-left:8px;vertical-align:middle}
+  .bonus-note{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);letter-spacing:.04em;color:var(--amber);text-transform:none;font-weight:400}
   .rev-rail{display:flex;flex-direction:column;gap:15px;position:sticky;top:14px}
   .painel{background:linear-gradient(180deg,rgba(22,28,37,.7),rgba(16,21,28,.7));border:1px solid var(--line-hud);border-radius:15px;padding:16px 18px} .ph{font-size:var(--fs-micro);letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;margin-bottom:13px;font-weight:500}
   .nums{display:flex;flex-direction:column;gap:12px} .num{display:flex;align-items:baseline;gap:11px} .num .v{font-family:"Space Grotesk",sans-serif;font-size:var(--fs-detail);font-weight:700;line-height:1;min-width:32px;font-variant-numeric:tabular-nums} .num .l{font-size:var(--fs-meta);color:var(--text-dim);line-height:1.35}
@@ -239,6 +243,8 @@
       <div class="times" id="rev-times"></div>
       <div class="lbl">Skills pra criar (sob medida)</div>
       <div id="rev-skills"></div>
+      <div class="lbl bonus-lbl" id="rev-bonus-lbl" hidden>Skills bônus <span class="bonus-note">· já vêm prontas, de brinde</span></div>
+      <div id="rev-bonus"></div>
     </section>
     <aside class="rev-rail">
       <div class="painel"><div class="ph">Seu OS em números</div><div class="nums" id="rev-nums"></div></div>
@@ -320,6 +326,15 @@ const PALETA=['#53E7EA','#56C8B0','#7FD9DE','#3FBFC4','#53E7EA','#56C8B0','#7FD9
 const corIdx=(i)=>PALETA[i%PALETA.length];
 
 
+// ---------- skills bônus (fixas, já vêm prontas no template) ----------
+// Fonte canônica: .genesis/bonus-skills.json (o backend usa o mesmo pra marcar `bonus` no
+// catálogo). Aqui é só o display do reveal. Pra adicionar outra skill bônus: bundle a skill
+// em .claude/skills/<slug>/, adicione a entrada nos DOIS (bonus-skills.json + esta lista).
+// Não são "seu time sob medida" — são brinde, por isso aparecem num bloco separado.
+const BONUS_SKILLS=[
+  {ic:'🎬',slug:'site-reveal-cinematico',cmd:'/site-reveal-cinematico',desc:'Cria um site onde <b>cada rolagem avança um frame de um vídeo</b> (estilo Apple product reveal). Ótimo pra portfólio: um site premium pra mostrar seus dashboards e projetos.'},
+];
+
 // ---------- estado ----------
 let historico=[], passoN=0, recomendacao=null, inboxN=0;
 
@@ -385,6 +400,10 @@ function irReveal(){
       <div class="por"><b>Por que:</b> ${rich(a.por||'')}</div></div>`;
   }).join('');
   $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${s.ic||'⚡'}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  if(BONUS_SKILLS.length){
+    $('#rev-bonus-lbl').hidden=false;
+    $('#rev-bonus').innerHTML=BONUS_SKILLS.map(s=>`<div class="skill bonus"><div class="si">${s.ic||'🎁'}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}<span class="tag-bonus">bônus</span></h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  }
   const n=r.nums||{}; $('#rev-nums').innerHTML=`
     <div class="num a"><span class="v">${n.agentes??(r.agentes||[]).length}</span><span class="l">especialistas no seu time</span></div>
     <div class="num c"><span class="v">${n.skills??(r.skills||[]).length}</span><span class="l">skills sob medida</span></div>`;

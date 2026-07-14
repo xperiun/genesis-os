@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<!--
+  Template do skill /site-reveal-cinematico. Site scroll-driven (Vite + GSAP + Lenis).
+  Hero = reveal cinematográfico: o vídeo (public/bg.mp4, all-keyframe) scruba quadro a quadro
+  durante o pin do hero (notebook fechado → dashboard), a copy entra em beats. Depois o dashboard congela atrás do conteúdo.
+  IMPORTANTE: é app Vite. Rodar `npm run dev` (NÃO abrir no Live Server/file:// — o CSS é importado via JS
+  e não carrega sem o bundler, o site fica sem estilo). Conhecimento: skill /site-reveal-cinematico.
+  DS: AUTORAL "Sinal no Ruído" (near-black #0A0B0D + lima #C5F82A). Exemplo: consultoria fictícia "Cota Dados", 100% ilustrativo.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Cota Dados — Dados parados viram decisão</title>
+  <meta name="description" content="Consultoria de BI e IA aplicada. Transformo a planilha esquecida no painel que a diretoria abre antes de decidir. Power BI, IA e leitura de negócio." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Cota Dados — Dados parados viram decisão" />
+  <meta property="og:description" content="Consultoria de BI e IA aplicada. Transformo dado parado em decisão de diretoria." />
+  <meta property="og:image" content="/poster.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- fixed background stack -->
+  <video class="bg-video" id="bgv" muted playsinline preload="auto" poster="/poster.jpg" aria-hidden="true" tabindex="-1">
+    <source src="/bg.mp4" type="video/mp4" />
+  </video>
+  <div class="bg-tint" aria-hidden="true"></div>
+  <div class="bg-shade" aria-hidden="true"></div>
+  <div class="ambient" aria-hidden="true"><span class="amb amb--1"></span><span class="amb amb--2"></span><span class="amb amb--3"></span></div>
+  <div class="rh-steps" id="rhSteps" aria-hidden="true">
+    <span data-step="1">dado bruto</span>
+    <span data-step="2">modelo</span>
+    <span data-step="3">painel</span>
+    <span data-step="4">decisão</span>
+  </div>
+  <div class="rhero-progress" id="rhProg" aria-hidden="true"></div>
+  <div class="cursor" id="cursor" aria-hidden="true"></div>
+
+  <!-- preloader -->
+  <div class="preloader" id="preloader">
+    <div class="preloader__inner">
+      <svg class="pl-mark" viewBox="0 0 64 64" fill="none"><rect x="16" y="34" width="6" height="14" rx="2" fill="#C5F82A"/><rect x="29" y="24" width="6" height="24" rx="2" fill="#C5F82A"/><rect x="42" y="16" width="6" height="32" rx="2" fill="#C5F82A"/></svg>
+      <span class="preloader__word">Cota<b>Dados</b></span>
+      <span class="preloader__pct" id="plpct">carregando…</span>
+    </div>
+  </div>
+
+  <!-- nav -->
+  <nav id="nav">
+    <a href="#home" class="logo" data-h>
+      <svg viewBox="0 0 64 64" fill="none"><rect x="16" y="34" width="6" height="14" rx="2" fill="#C5F82A"/><rect x="29" y="24" width="6" height="24" rx="2" fill="#C5F82A"/><rect x="42" y="16" width="6" height="32" rx="2" fill="#C5F82A"/></svg>
+      Cota<b>Dados</b>
+    </a>
+    <div class="nav-links" id="navlinks">
+      <a href="#process" data-h>Cases</a>
+      <a href="#showcase" data-h>Capacidades</a>
+      <a href="#studio" data-h>Sobre</a>
+      <a href="#contact" class="nav-cta" data-h>Falar comigo</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </nav>
+
+  <main id="page">
+
+    <!-- REVEAL HERO (pinned: vídeo scruba notebook fechado→dashboard, copy em etapas) -->
+    <section class="rhero" id="home">
+      <div class="rhero__pin">
+        <div class="rhero__copy">
+          <span class="eyebrow rh-eye">Consultoria de BI &amp; IA aplicada <span class="dot">·</span> São Paulo, BR</span>
+          <div class="rh-stage">
+            <h1 class="rh-line rh-beat" data-beat="1"><span>Todo dado</span><span>começa fechado.</span></h1>
+            <div class="rh-line rh-beat" data-beat="2" role="text"><span>Trancado numa planilha</span><span>que ninguém abre.</span></div>
+            <div class="rh-line rh-beat" data-beat="3" role="text"><span>Até alguém</span><span>traduzir em <em>painel.</em></span></div>
+            <div class="rh-line rh-beat" data-beat="4" role="text"><span>Aí ele para de informar.</span><span>E começa a <em>decidir.</em></span></div>
+          </div>
+          <p class="rh-sub">Power BI, IA e leitura de negócio. Eu transformo a planilha esquecida no painel que a diretoria abre antes de decidir.</p>
+          <div class="rh-cta hero__cta">
+            <a href="#contact" class="glass glass-btn glass-btn--primary" data-h>Começar um projeto <span class="arw">↗</span></a>
+            <a href="#process" class="glass glass-btn glass-btn--ghost" data-h>Ver os cases</a>
+          </div>
+        </div>
+        <div class="scrollcue" id="rhCue"><span>ROLE PRA ABRIR</span><div class="bar"></div></div>
+      </div>
+    </section>
+
+    <!-- IMPACT (pinned word-by-word) -->
+    <section class="impact" id="impact">
+      <div class="impact__pin">
+        <p class="impact__head" id="impactHead"></p>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats-sec" id="stats">
+      <div class="wrap">
+        <div class="stats">
+          <div class="stat">
+            <div class="num"><span class="cv" data-count="48">48</span></div>
+            <svg class="stat-viz" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"><polyline pathLength="1" points="0,30 24,24 48,25 72,15 96,12 120,4"/></svg>
+            <div class="lbl">Dashboards entregues<br>em produção</div>
+          </div>
+          <div class="stat">
+            <div class="num"><span class="cv" data-count="320">320</span><span class="u">h</span></div>
+            <svg class="stat-viz" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"><polyline pathLength="1" points="0,26 18,30 38,18 58,22 78,12 98,16 120,6"/></svg>
+            <div class="lbl">Horas de relatório<br>manual eliminadas / mês</div>
+          </div>
+          <div class="stat">
+            <div class="num"><span class="cv" data-count="11">11</span></div>
+            <svg class="stat-viz" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"><polyline pathLength="1" points="0,31 30,28 60,20 90,18 120,8"/></svg>
+            <div class="lbl">Áreas de negócio<br>atendidas</div>
+          </div>
+          <div class="stat">
+            <div class="num"><span class="u">R$ </span><span class="cv" data-count="6.2" data-dec="1">6,2</span><span class="u">M</span></div>
+            <svg class="stat-viz" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"><polyline pathLength="1" points="0,30 40,27 70,24 90,12 105,9 120,3"/></svg>
+            <div class="lbl">Em compras e vendas<br>lidos nos painéis</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CASES (galeria de dashboards reais) -->
+    <section class="cases" id="process">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="section-head__txt">
+            <span class="secnum">[ 01 — CASES REAIS ]</span>
+            <h2>Painéis em produção</h2>
+            <p class="lead">Cases reais de compras, vendas e gestão. Cada painel aqui sustenta uma decisão que antes saía no achismo.</p>
+          </div>
+          <span class="hcounter"><b>05</b> painéis em produção</span>
+        </div>
+        <div class="case-grid">
+          <article class="glass case-card case-card--wide" data-h>
+            <div class="cc-shot"><img src="/dashs/compras.jpg" alt="Dashboard de Compras &amp; Suprimentos" loading="lazy" /></div>
+            <div class="cc-body">
+              <span class="case-tag">Compras &amp; Suprimentos · Indústria BR</span>
+              <h3>Custo, saving e lead time num painel só.</h3>
+              <p>R$ 24,8 Mi em compras lidos por fornecedor, finalidade e UF. O saving deixa de ser promessa de planilha e vira número auditável.</p>
+            </div>
+          </article>
+          <article class="glass case-card" data-h>
+            <div class="cc-shot"><img src="/dashs/vendas.jpg" alt="Dashboard de Vendas" loading="lazy" /></div>
+            <div class="cc-body">
+              <span class="case-tag">Performance de Vendas · Distribuição BR</span>
+              <h3>Faturamento, margem e ranking, vivos.</h3>
+              <p>Faturamento contra o ano anterior, margem bruta e top vendedores na mesma tela. A diretoria para de pedir relatório e abre o painel.</p>
+            </div>
+          </article>
+          <article class="glass case-card" data-h>
+            <div class="cc-shot"><img src="/dashs/pedidos.jpg" alt="Dashboard de Logística" loading="lazy" /></div>
+            <div class="cc-body">
+              <span class="case-tag">Logística · Operação BR</span>
+              <h3>OTIF, On Time e In Full por filial.</h3>
+              <p>139 mil pedidos lidos por região, filial e motivo de ocorrência. Cada atraso passa a ter um dono e uma meta, no lugar do "acho que melhorou".</p>
+            </div>
+          </article>
+          <article class="glass case-card" data-h>
+            <div class="cc-shot"><img src="/dashs/metas.jpg" alt="Dashboard Realizado vs Meta" loading="lazy" /></div>
+            <div class="cc-body">
+              <span class="case-tag">Comercial · Realizado vs Meta</span>
+              <h3>Quem bateu a meta, quem ficou pra trás.</h3>
+              <p>Faturamento contra meta mês a mês, por gerente e por vendedor. A reunião de resultado passa a discutir ação, não número.</p>
+            </div>
+          </article>
+          <article class="glass case-card" data-h>
+            <div class="cc-shot"><img src="/dashs/crm.jpg" alt="Dashboard de Funil Comercial" loading="lazy" /></div>
+            <div class="cc-body">
+              <span class="case-tag">Funil Comercial · CRM</span>
+              <h3>Oportunidade, conversão e motivo de perda.</h3>
+              <p>639 oportunidades lidas por fonte, etapa e responsável. O motivo de cada perda sai do campo de texto do CRM e entra na pauta da reunião.</p>
+            </div>
+          </article>
+        </div>
+        <span class="cases__note">Dashboards reais de projetos · dados ilustrativos</span>
+      </div>
+    </section>
+
+    <!-- STATEMENT (momento "produto flutuando") -->
+    <section class="statement" id="statement">
+      <div class="stmt__inner">
+        <p class="stmt__line">Uma tela.<br>E a reunião <em>inteira</em><br>decide por ela.</p>
+        <div class="stmt__stage" aria-hidden="true">
+          <span class="stmt__glow"></span>
+          <div class="glass stmt__frame">
+            <span class="stmt__bar"></span>
+            <img src="/dashs/metas.jpg" alt="" loading="lazy" />
+          </div>
+          <span class="stmt__chip">atualizado há 2 min</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOWCASE / CAPACIDADES -->
+    <section class="showcase" id="showcase">
+      <div class="wrap">
+        <div class="section-head col">
+          <span class="secnum">[ 02 — COMO EU TRABALHO ]</span>
+          <h2 class="showcase__line">Capacidades</h2>
+          <p class="lead">Não entrego gráfico bonito. Entrego o caminho do dado bruto até a decisão que ele sustenta.</p>
+        </div>
+        <div class="cap-grid">
+          <div class="glass cap"><div class="si">/ 01</div><h4>Modelagem &amp; ETL</h4><p>Conecto, limpo e modelo as fontes que ninguém quer abrir. Um dado, uma verdade, atualizando sozinho.</p></div>
+          <div class="glass cap"><div class="si">/ 02</div><h4>Dashboards de decisão</h4><p>Painéis em Power BI que respondem pergunta de gestão, não enchem tela de KPI.</p></div>
+          <div class="glass cap"><div class="si">/ 03</div><h4>IA aplicada ao dado</h4><p>IA pra classificar, prever e explicar o que o número diz. Análise que levava dias sai em minutos.</p></div>
+          <div class="glass cap"><div class="si">/ 04</div><h4>Automação de relatório</h4><p>O relatório que tomava sua sexta passa a se montar sozinho. Você lê, decide e segue.</p></div>
+          <div class="glass cap"><div class="si">/ 05</div><h4>Storytelling de dados</h4><p>Traduzo o painel pro idioma da diretoria. O dado vira argumento, o argumento vira decisão.</p></div>
+          <div class="glass cap"><div class="si">/ 06</div><h4>Capacitação do time</h4><p>Deixo o time autônomo. Quando eu saio, o painel continua vivo por dentro.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDIO / SOBRE -->
+    <section class="studio" id="studio">
+      <div class="wrap">
+        <span class="secnum">[ 03 — QUEM ESTÁ POR TRÁS ]</span>
+        <div class="about">
+          <div class="about-txt">
+            <h2 class="studio__title">Vim do operacional.<br>Por isso falo a sua língua.</h2>
+            <p>Passei anos exportando planilha às 19h pra alguém decidir às 9h do dia seguinte. Cansei de ser quem fazia o relatório e nunca era chamado pra reunião onde ele virava decisão.</p>
+            <p>Aprendi dados, Power BI e IA não pra virar técnico, mas pra virar a pessoa que a empresa consulta antes de decidir. Hoje é isso que eu instalo nos meus clientes.</p>
+          </div>
+          <div class="glass quote">
+            <div class="qm">"</div>
+            <blockquote>Era a primeira vez que a gente abria uma reunião de diretoria olhando pro painel, e não pra opinião de quem falava mais alto.</blockquote>
+            <div class="by"><div class="av">DG</div><div class="meta"><b>Diretor de Operações</b><span>Indústria BR · depoimento ilustrativo</span></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT / CTA -->
+    <section class="contact" id="contact">
+      <div class="wrap">
+        <span class="eyebrow">Vamos conversar</span>
+        <h2 class="buy__title">Seu dado já<br>sabe a <em>resposta</em>.</h2>
+        <p class="lead center">Me conta a pergunta de negócio que ninguém consegue cravar. Eu te mostro onde o dado já responde e ninguém tinha olhado.</p>
+        <form class="glass contact-form" id="contactForm" novalidate>
+          <div class="cf-row">
+            <input type="text" name="nome" placeholder="Seu nome" autocomplete="name" required />
+            <input type="text" name="pergunta" placeholder="Qual pergunta de negócio está sem resposta?" required />
+          </div>
+          <button type="submit" class="glass-btn glass-btn--primary cf-send" data-h>Quero ver o dado responder <span class="arw">↗</span></button>
+          <p class="cf-ok" id="cfOk" hidden>Recebido. Te respondo em até 1 dia útil no e-mail ou WhatsApp que você usa. 👊</p>
+        </form>
+        <p class="cf-alt">ou fala direto <a href="https://wa.me/5500000000000" data-h>no WhatsApp</a>, <a href="#" data-h>LinkedIn</a> ou <a href="mailto:contato@cotadados.com.br" data-h>e-mail</a></p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer__top">
+      <span class="footer__big">Cota<b>Dados</b></span>
+      <div class="foot-links">
+        <div class="foot-col"><span class="ti">Navegar</span><a href="#process" data-h>Cases</a><a href="#showcase" data-h>Capacidades</a><a href="#studio" data-h>Sobre</a></div>
+        <div class="foot-col"><span class="ti">Contato</span><a href="https://wa.me/5500000000000" data-h>WhatsApp</a><a href="#" data-h>LinkedIn</a><a href="mailto:contato@cotadados.com.br" data-h>E-mail</a></div>
+      </div>
+    </div>
+    <div class="footer__bot">
+      <span>© 2026 Cota Dados · Demonstração. Conteúdo e dados ilustrativos.</span>
+      <span class="seal">⚡ Forjado na Imersão <b>AI Champion</b></span>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
