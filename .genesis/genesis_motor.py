@@ -21,12 +21,43 @@ dele, R$ 0). Ordem: (1) Claude Code via `claude -p`; (2) entrevista determiníst
 nunca travar. Sem dependência do loop de voz do X (persona diferente: aqui o X é um
 entrevistador de onboarding, não o assistente do founder)."""
 import json
+import os
 import re
 import shutil
 import subprocess
 import time
 import unicodedata
 from pathlib import Path
+
+# ---- Modelo: quem paga a conta é a ASSINATURA do comprador, então ele escolhe -------------
+# Sem isto o `claude -p` herda o default da máquina dele, e o mesmo produto consome de um
+# jeito num Max e de outro num Pro, sem ninguém enxergar. Pior: o Opus tem cota PRÓPRIA e
+# separada da janela de 5h (documentado), então num Pro ele acaba primeiro, a montagem falha
+# e o comprador cai no time de esboço.
+#
+# Vazio = herda o default do comprador (o que a máquina dele já usa).
+# "sonnet" = previsível e cabe no Pro. "opus" = mais fundo, mas cota apertada.
+# Ver a tabela de escolha no ../docs/MODELO.md (números medidos, não chute).
+MODELO = (os.environ.get("GENESIS_MODELO") or "").strip()
+
+# O modelo que o `claude -p` do comprador DE FATO usou no último turno, lido do `modelUsage`
+# do envelope. É de graça (já vem em toda resposta) e é o que permite avisar só quem precisa:
+# se a entrevista rodou em Opus, o reveal oferece trocar antes da montagem, em vez de
+# perguntar o plano pra todo mundo. Processo único e local: um servidor, um comprador.
+_ULTIMO_MODELO = ""
+
+
+def _flags_modelo(override=None):
+    """Os flags de modelo pro `claude -p`. Precedência: escolha do comprador na cena
+    (override) > GENESIS_MODELO > vazio (herda o default da máquina dele)."""
+    m = (override or MODELO or "").strip()
+    return ["--model", m] if m else []
+
+
+def ultimo_modelo():
+    """O modelo do último turno da entrevista (ex: 'claude-opus-4-8[1m]'). '' se ainda não
+    rodou nenhum (a 1ª pergunta é fixa e não chama o CLI)."""
+    return _ULTIMO_MODELO
 
 _SYSTEM = """Você é o X, o entrevistador de onboarding do OS do comprador. Sua missão nesta
 conversa: CONHECER a pessoa que acabou de instalar o OS dela e, no fim, PROJETAR o time
@@ -43,6 +74,20 @@ cada vez (nunca empilhe várias numa frase). Nada de "Ótima pergunta"/"Perfeito
 A PRIMEIRA pergunta é curta, aberta e acolhedora, e NÃO assume que a pessoa tem negócio ou
 vende algo (ela pode ser funcionária, autônoma, estudante). Abra simples pelo que ela faz,
 tipo "Pra começar, me conta: o que você faz no dia a dia?". Depois vá fundo pelas respostas.
+
+QUANDO VIER UM DOSSIÊ (o material que a pessoa conectou: docs do negócio, o site dela, o
+contexto importado do Claude Code dela), a regra muda e é INVIOLÁVEL: você JÁ SABE quem ela
+é. NUNCA pergunte o que está escrito lá. Perguntar "o que você faz?" pra quem acabou de te
+entregar o site e os documentos do negócio é o jeito mais rápido de parecer burro e queimar
+a experiência.
+- Sua PRIMEIRA fala então NÃO é uma pergunta de identificação. É uma frase curta mostrando
+  que você leu (nomeie o negócio, a área, o que ela vende) e emenda direto na pergunta que
+  o dossiê NÃO responde. Ex: "Vi que você toca a <b>Acme</b>, consultoria de RH pra indústria.
+  O que mais te consome na semana hoje?"
+- Use o dossiê pra pular perguntas e ir MAIS FUNDO, não pra fazer as mesmas. Com dossiê,
+  3 a 5 perguntas bastam: o que falta é a DOR, a META e o DADO que ela tem na mão, que é
+  o que documento nenhum conta.
+- Nunca invente o que não está no dossiê. Leu pouco, pergunte o resto normalmente.
 
 Português do Brasil com TODOS os acentos. NUNCA use travessão (o traço "—") em lugar
 nenhum: nem na pergunta, nem em NENHUM campo do JSON (entendi, por, desc, sub). Use
@@ -95,15 +140,52 @@ _FALLBACK_PERGUNTAS = [
     "Última: você já tem algum dado na mão (planilha, sistema, números), ou a gente começa do zero?",
 ]
 
-_FALLBACK_RECO = {
-    "entendi": ["Montei um time base sólido pra você começar. Refaça a entrevista quando quiser afinar ele pro seu caso."],
+# Trilhas do fallback: quando o Claude Code do comprador não responde, não dá pra inventar
+# especialista sob medida. O mínimo honesto é montar pelo que a pessoa DIGITOU (as palavras
+# dela decidem a trilha), em vez do mesmo enlatado pra todo mundo. Cada trilha é (gatilhos,
+# agentes, skills). A ordem importa: a primeira que casar entra primeiro.
+#
+# Gatilho se escreve SEM ACENTO e no SINGULAR: o _casa normaliza o acento dos dois lados e
+# aceita o plural sozinho. Escrever "métrica" E "metrica" (como era antes) é convite a
+# esquecer uma das duas, e foi o que aconteceu com o plural: a lista tinha "métrica",
+# "relatório", "indicador", "vídeo" no singular e nenhum plural, então "acompanho os
+# indicadores e relatórios da diretoria" (o jeito que gente de verdade escreve) não casava
+# NADA e caía no piso genérico, que é exatamente o que estas trilhas existem pra evitar.
+# Plural irregular (carrossel -> carrosseis, funil -> funis) não sai de regra, vai na lista.
+_FALLBACK_TRILHAS = [
+    (("dado", "bi", "power bi", "dashboard", "sql", "planilha", "excel", "metrica",
+      "relatorio", "numero", "indicador", "kpi", "analista"),
+     [{"slug": "analista-de-dados", "nome": "Analista de Dados", "ic": "📊", "tag": "Essencial",
+       "por": "Você falou de dado. Ele transforma teu número em decisão."},
+      {"slug": "narrador-de-dados", "nome": "Narrador de Dados", "ic": "🎬", "tag": "Recomendado",
+       "por": "Pra teu dado virar história que decide, não só gráfico bonito."}],
+     [{"ic": "⚡", "slug": "relatorio-executivo", "nome": "Relatório executivo",
+       "cmd": "/relatorio-executivo", "desc": "Monta o executivo da semana num comando."}]),
+    (("conteudo", "post", "instagram", "linkedin", "carrossel", "carrosseis", "video",
+      "roteiro", "audiencia", "newsletter", "blog", "social"),
+     [{"slug": "estrategista-de-conteudo", "nome": "Estrategista de Conteúdo", "ic": "✍️",
+       "tag": "Essencial", "por": "Você falou de conteúdo. Ele transforma teu insight em post na tua voz."}],
+     [{"ic": "📱", "slug": "post", "nome": "Post", "cmd": "/post",
+       "desc": "Transforma uma ideia solta em post pronto, na tua voz."}]),
+    (("venda", "cliente", "proposta", "lead", "comercial", "funil", "funis",
+      "orcamento", "fechar", "prospect"),
+     [{"slug": "closer", "nome": "Closer", "ic": "🎯", "tag": "Essencial",
+       "por": "Você falou de venda. Ele trata objeção e escreve o que fecha."}],
+     [{"ic": "📄", "slug": "proposta", "nome": "Proposta", "cmd": "/proposta",
+       "desc": "Gera a proposta comercial a partir do briefing do cliente."}]),
+]
+
+# Piso do fallback: usado quando nada do que a pessoa digitou casou com uma trilha (ou quando
+# ela não digitou nada). Único caso em que o time é genérico de verdade, e a copy assume isso.
+_FALLBACK_PISO = {
     "agentes": [
-        {"slug": "analista-de-dados", "nome": "Analista de Dados", "ic": "📊", "tag": "Essencial", "por": "Pra transformar teu número em decisão."},
-        {"slug": "narrador-de-dados", "nome": "Narrador de Dados", "ic": "🎬", "tag": "Recomendado", "por": "Pra teu dado virar história que decide."},
-        {"slug": "estrategista-de-conteudo", "nome": "Estrategista de Conteúdo", "ic": "✍️", "tag": "Opcional", "por": "Pra teu insight virar conteúdo na tua voz."},
+        {"slug": "analista-de-dados", "nome": "Analista de Dados", "ic": "📊", "tag": "Essencial",
+         "por": "Pra transformar teu número em decisão."},
+        {"slug": "estrategista-de-conteudo", "nome": "Estrategista de Conteúdo", "ic": "✍️",
+         "tag": "Recomendado", "por": "Pra teu insight virar conteúdo na tua voz."},
     ],
-    "skills": [{"ic": "⚡", "slug": "relatorio-executivo", "nome": "Relatório executivo", "cmd": "/relatorio-executivo", "desc": "Monta o executivo da semana num comando."}],
-    "fonte": {"titulo": "sua fonte de dados", "sub": "Conecte uma planilha ou um objetivo pra o time começar a enxergar."},
+    "skills": [{"ic": "⚡", "slug": "relatorio-executivo", "nome": "Relatório executivo",
+                "cmd": "/relatorio-executivo", "desc": "Monta o executivo da semana num comando."}],
 }
 
 
@@ -218,18 +300,82 @@ def _normalizar(obj, historico):
     return _fallback(historico)
 
 
-def _fallback(historico):
-    """Sem Claude ou erro: conduz uma entrevista base determinística, depois monta."""
+def _sem_acento(s):
+    """'métricas' -> 'metricas'. O comprador digita com e sem acento no mesmo texto, então a
+    comparação acontece toda num lado só: sem acento, minúsculo."""
+    return unicodedata.normalize("NFKD", str(s or "")) \
+        .encode("ascii", "ignore").decode("ascii").lower()
+
+
+def _casa(texto, gatilhos):
+    """`texto` já vem por _sem_acento. Casa por PALAVRA INTEIRA (nunca substring: sem o \\b,
+    'proposta' casaria o gatilho 'post' e quem fala de proposta comercial ganharia um
+    estrategista de conteúdo do nada), aceitando o plural regular do PT-BR: 's' (metrica ->
+    metricas) e 'es' (indicador -> indicadores). \\b também funciona pra gatilho de duas
+    palavras ('power bi')."""
+    return any(re.search(r"\b" + re.escape(g) + r"(?:s|es)?\b", texto) for g in gatilhos)
+
+
+def _reco_fallback(historico):
+    """Time base montado a partir do que a pessoa DIGITOU, não um enlatado igual pra todos.
+
+    Só roda quando o Claude Code do comprador não respondeu (CLI fora do PATH, queda de rede).
+    Sem modelo não dá pra inventar especialista sob medida, então a honestidade aqui é: usar
+    as palavras dela pra escolher a trilha, ecoar o que ela disse no 'entendi', deixar claro
+    que é um time BASE e convidar a refazer. Nunca anunciar a falha como se fosse diagnóstico
+    ("o motor não respondeu" no card de 'o que eu entendi de você' é o pior lugar possível)."""
+    falas = [_sem_html(m.get("texto", "")) for m in historico
+             if m.get("role") == "voce" and str(m.get("texto", "")).strip()]
+    texto = _sem_acento(" ".join(falas))   # os gatilhos vivem sem acento: compara num lado só
+    agentes, skills, casou = [], [], False
+    for gatilhos, ags, sks in _FALLBACK_TRILHAS:
+        if _casa(texto, gatilhos):
+            casou = True
+            agentes += [dict(a) for a in ags]
+            skills += [dict(s) for s in sks]
+    if not casou:
+        agentes = [dict(a) for a in _FALLBACK_PISO["agentes"]]
+        skills = [dict(s) for s in _FALLBACK_PISO["skills"]]
+    entendi = []
+    if falas:
+        entendi.append("Você me contou: <b>" + _corta(falas[0], 150) + "</b>")
+    entendi.append("Montei um time <b>base</b> a partir disso, pra você já começar. "
+                   "Refaça quando quiser: com o time sob medida, cada especialista nasce "
+                   "escrito do zero pro seu caso.")
+    return {"entendi": entendi, "agentes": agentes[:4], "skills": skills[:3],
+            "fonte": {"titulo": "sua fonte de dados",
+                      "sub": "Conecte uma planilha, um banco ou um objetivo pra o time começar a enxergar."}}
+
+
+def _fallback(historico, forcar=False):
+    """Sem Claude ou erro: conduz uma entrevista base determinística, depois monta pelo que
+    a pessoa digitou (ver _reco_fallback). `forcar` = ela apertou "monta agora", então monta
+    na hora, sem completar o roteiro de perguntas."""
     perguntas_feitas = sum(1 for m in historico if m.get("role") == "x")
-    if perguntas_feitas < len(_FALLBACK_PERGUNTAS):
+    if not forcar and perguntas_feitas < len(_FALLBACK_PERGUNTAS):
         return {"done": False, "pergunta": _FALLBACK_PERGUNTAS[perguntas_feitas], "candidato": None}
-    return {"done": True, "recomendacao": _garantir_ds(json.loads(json.dumps(_FALLBACK_RECO)))}
+    return {"done": True, "recomendacao": _garantir_ds(_reco_fallback(historico))}
 
 
-def _montar_prompt(historico):
-    """Renderiza a conversa como texto pra um turno headless do Claude Code."""
-    linhas = ["Conversa até agora (X = você, o entrevistador; Comprador = quem acabou "
-              "de instalar o OS):", ""]
+def _montar_prompt(historico, kb="", forcar=False):
+    """Renderiza a conversa como texto pra um turno headless do Claude Code. `kb` é o dossiê
+    que o comprador conectou (contexto/referencia/): com ele, o entrevistador abre JÁ sabendo
+    quem é a pessoa, em vez de perguntar o que já está escrito. `forcar` = o comprador apertou
+    "monta agora": o teto vira imediato, ele não fica refém do modelo querer perguntar mais."""
+    linhas = []
+    if (kb or "").strip():
+        linhas += [
+            "DOSSIÊ DO COMPRADOR (o material que ELE MESMO conectou: documentos do negócio, "
+            "o site dele, o contexto importado do Claude Code dele). Você JÁ LEU isto, então "
+            "NÃO pergunte nada que esteja aqui. Use pra abrir mostrando que leu e ir direto "
+            "no que falta (a dor, a meta, o dado na mão):",
+            kb.strip()[:14000],
+            "",
+            "=" * 60,
+            "",
+        ]
+    linhas += ["Conversa até agora (X = você, o entrevistador; Comprador = quem acabou "
+               "de instalar o OS):", ""]
     tem = False
     for m in historico:
         quem = "X" if m.get("role") == "x" else "Comprador"
@@ -238,12 +384,19 @@ def _montar_prompt(historico):
             linhas.append(f"{quem}: {txt}")
             tem = True
     if not tem:
-        linhas.append("(a conversa ainda não começou: faça a PRIMEIRA pergunta)")
+        linhas.append("(a conversa ainda não começou: faça a PRIMEIRA fala)"
+                      + (" Você TEM dossiê: abra mostrando que leu, sem perguntar o que já sabe."
+                         if (kb or "").strip() else " Faça a PRIMEIRA pergunta."))
     # teto DURO por contagem: o modelo ignora o "5 a 7" do system e estica a entrevista
     # (a pessoa começa a reclamar). A pressão cresce com o número de perguntas já feitas.
     n_perg = sum(1 for m in historico if m.get("role") == "x")
     fecha = ""
-    if n_perg >= 7:
+    if forcar:
+        fecha = ("ATENÇÃO: o comprador APERTOU o botão de montar o time agora. Ele não quer "
+                 "mais responder. PARE de perguntar. Responda AGORA com acao:montar, montando "
+                 "o time com o que já sabe (o dossiê e o que ele já respondeu). Fazer outra "
+                 "pergunta neste ponto é ERRO e desrespeita o pedido dele.")
+    elif n_perg >= 7:
         fecha = (f"ATENÇÃO: você já fez {n_perg} perguntas, é DEMAIS. PARE de perguntar. "
                  "Responda AGORA com acao:montar, montando o time com o que já sabe. "
                  "Fazer outra pergunta neste ponto é ERRO.")
@@ -277,7 +430,7 @@ def _montar_prompt(historico):
     return "\n".join(linhas)
 
 
-def _claude_cli(prompt, system, tools=None, cwd=None):
+def _claude_cli(prompt, system, tools=None, cwd=None, timeout=180):
     """O cérebro do produto: roda um turno pelo Claude Code do COMPRADOR (a assinatura
     dele, R$ 0, sem chave paga), headless via `claude -p`. Devolve o texto do modelo,
     ou None se o CLI não existe / falha (aí o passo cai no próximo cérebro).
@@ -285,7 +438,9 @@ def _claude_cli(prompt, system, tools=None, cwd=None):
     tools: allowed tools separadas por espaço. None/"" = SÓ CONVERSA (entrevista, sem ler
       arquivo). "Read Grep Glob" = leitura read-only (o chat de agente lê o repo do aluno).
     cwd: pasta de trabalho. None = tempdir neutro (entrevista, não puxa CLAUDE.md). O repo do
-      comprador pro chat, pra o agente achar os arquivos dele (producao/, contexto/, ...)."""
+      comprador pro chat, pra o agente achar os arquivos dele (producao/, contexto/, ...).
+    timeout: teto desta chamada, em segundos. A entrevista passa o que SOBRA do orçamento
+      dela (ver _ORCAMENTO_PASSO), pra a soma das tentativas não estourar o teto do cliente."""
     exe = shutil.which("claude")
     if not exe:
         return None
@@ -293,12 +448,13 @@ def _claude_cli(prompt, system, tools=None, cwd=None):
     # --system-prompt = override total (persona limpa, sem o prompt de agente-de-código por
     # baixo). SEM --bare: --bare forçaria ANTHROPIC_API_KEY e mataria a assinatura.
     cmd = [exe, "-p", "--output-format", "json", "--system-prompt", system]
+    cmd += _flags_modelo()   # o comprador manda no modelo (GENESIS_MODELO); vazio = default dele
     cmd += (["--allowedTools", tools] if tools else ["--tools", ""])  # tools na allowlist auto-aprovam em headless
     run_cwd = str(cwd) if cwd else tempfile.gettempdir()
     try:
         proc = subprocess.run(
             cmd, input=prompt, capture_output=True, text=True,
-            encoding="utf-8", errors="ignore", timeout=180,
+            encoding="utf-8", errors="ignore", timeout=timeout,
             cwd=run_cwd)
     except Exception:
         return None
@@ -308,41 +464,99 @@ def _claude_cli(prompt, system, tools=None, cwd=None):
         env = json.loads(proc.stdout)
     except json.JSONDecodeError:
         return None
+    # o envelope já entrega qual modelo rodou: guarda pra a cena poder avisar quem está em
+    # Opus antes da montagem (a cota do Opus é separada e é a que acaba primeiro)
+    mu = env.get("modelUsage") or {}
+    if mu:
+        global _ULTIMO_MODELO
+        _ULTIMO_MODELO = next(iter(mu), "") or _ULTIMO_MODELO
     if env.get("is_error"):
         return None
     return env.get("result") or ""
 
 
-def passo(historico):
-    """Um passo da entrevista. `historico` = lista [{role:'x'|'voce', texto}].
+# Teto de tempo de UM passo da entrevista, somando TODAS as tentativas. Tem que ficar abaixo
+# do teto do cliente (200s, no api() do genesis.html), senão o browser desiste primeiro e a
+# tentativa seguinte é trabalho jogado fora: o comprador já leu "perdi a conexão" e o servidor
+# segue queimando um claude -p que ninguém vai ler. Com tentativas de 180s fixos, o pior caso
+# eram 3 x 180s = 540s pra uma resposta abandonada aos 200s.
+_ORCAMENTO_PASSO = 170
+_MIN_TENTATIVA = 20   # sobrando menos que isto, nem começa: não dá tempo de um turno voltar
+
+
+def passo(historico, base=None, forcar=False):
+    """Um passo da entrevista. `historico` = lista [{role:'x'|'voce', texto}]. `base` = raiz
+    do repo do comprador, pra ler o dossiê que ele conectou (contexto/referencia/) e o X
+    entrevistar JÁ sabendo quem ele é, em vez de perguntar o que já está escrito. `forcar` =
+    ele apertou "monta agora" e não quer mais responder.
+
+    Devolve o dict do turno + `modelo`: qual modelo o Claude Code DELE está usando. A cena
+    usa isso pra, no reveal, oferecer trocar de modelo só a quem está em Opus (cota separada
+    e apertada), em vez de perguntar o plano pra todo mundo.
+
     Cérebro: o Claude Code do COMPRADOR (na assinatura dele, R$ 0, via `claude -p`). Se o
     `claude` não estiver disponível, cai numa entrevista determinística, pra nunca travar."""
-    historico = historico or []
+    r = _passo(historico, base, forcar)
+    r["modelo"] = _ULTIMO_MODELO
+    return r
 
-    # a PRIMEIRA pergunta é FIXA: curta, aberta, acolhedora, sem assumir que a pessoa tem
-    # negócio ou vende algo. Deixado pro modelo, ele abre com "qual seu negócio, o que você
-    # vende", que exclui quem não vende (funcionário, analista, estudante). Do 2º turno em
-    # diante o modelo conduz, adaptando pelas respostas.
-    if not any(m.get("role") == "voce" for m in historico):
+
+def _passo(historico, base, forcar):
+    historico = historico or []
+    # dose menor que a da montagem: isto roda a CADA turno, e latência aqui é UX.
+    kb = _ler_referencia(base, teto=14000, por_arquivo=5000) if base else ""
+
+    tem_resposta = any(m.get("role") == "voce" for m in historico)
+    # "monta agora" sem NENHUM material (nem resposta, nem dossiê) montaria um time do nada
+    # (ou do CLAUDE.md global da máquina). Nesse caso ignora o forçar e abre a entrevista.
+    if forcar and not tem_resposta and not kb:
+        forcar = False
+
+    # SEM dossiê, a primeira pergunta é FIXA: curta, aberta, acolhedora, sem assumir que a
+    # pessoa tem negócio ou vende algo. Deixado pro modelo, ele abre com "qual seu negócio,
+    # o que você vende", que exclui quem não vende (funcionário, analista, estudante).
+    # COM dossiê, o modelo abre: ele já sabe quem é a pessoa e a abertura tem que provar isso
+    # (perguntar "o que você faz?" pra quem acabou de entregar o site é o que queima a cena).
+    if not tem_resposta and not kb and not forcar:
         return {"done": False,
                 "pergunta": "Pra começar simples: o que você faz no dia a dia?",
                 "candidato": None}
 
     system = _SYSTEM
     # o Claude Code do comprador conduz a entrevista, na assinatura dele
-    prompt = _montar_prompt(historico)
-    texto = _claude_cli(prompt, system)
+    prompt = _montar_prompt(historico, kb, forcar)
+
+    # ORÇAMENTO, não contagem de tentativas: as tentativas dividem _ORCAMENTO_PASSO entre si,
+    # e quem não cabe nele não roda. Uma queda do CLI não pode custar a entrevista (um hiccup
+    # viraria time genérico na hora, o colapso do clímax na frente da plateia), mas tentar de
+    # novo SÓ ajuda se a resposta ainda chegar a tempo de alguém ler.
+    fim = time.monotonic() + _ORCAMENTO_PASSO
+
+    def _cli(p):
+        resta = fim - time.monotonic()
+        if resta < _MIN_TENTATIVA:   # o que sobra não dá pra um turno voltar: degrada já
+            return None
+        return _claude_cli(p, system, timeout=resta)
+
+    texto = _cli(prompt)
+    if texto is None:
+        texto = _cli(prompt)
     if texto is not None:
         obj = _extrair_json(texto)
         if obj is None:  # embrulhou/cortou: re-pede enxuto uma vez antes de degradar
-            texto = _claude_cli(
-                prompt + "\n\nResponda SÓ com o JSON, completo, começando em '{' e "
-                "terminando em '}'.", system)
+            texto = _cli(prompt + "\n\nResponda SÓ com o JSON, completo, começando em '{' e "
+                                  "terminando em '}'.")
             obj = _extrair_json(texto or "")
-        return _normalizar(obj, historico)
+        if obj is not None:
+            r = _normalizar(obj, historico)
+            # o comprador pediu pra montar: se o modelo insistir em perguntar, ignora e monta.
+            # O botão é um contrato com ele, não uma sugestão pro modelo.
+            if forcar and not r.get("done"):
+                return {"done": True, "recomendacao": _garantir_ds(_reco_fallback(historico))}
+            return r
 
     # sem o Claude Code disponível: entrevista determinística (nunca trava)
-    return _fallback(historico)
+    return _fallback(historico, forcar)
 
 
 # --- Instalação: materializa o OS do comprador (pasta mãe + subpastas = um mini OS) ---
@@ -433,24 +647,49 @@ def _subagent_md(nome_id, description, body):
 
 # ---- Gerador: o Claude Code do comprador PESQUISA e ESCREVE o time do zero ----
 
-def _ler_referencia(base):
-    """Lê o knowledge base que o comprador jogou em contexto/referencia/ (md/txt/csv), pra a
-    montagem escrever o time JÁ sabendo do negócio real. Teto de tamanho pra não estourar o
-    prompt. Vazio se a pasta não existe ou está vazia (aí a montagem segue só pelo perfil)."""
+def _ler_referencia(base, teto=60000, por_arquivo=20000):
+    """Lê o knowledge base que o comprador conectou em contexto/referencia/ (md/txt/csv): os
+    docs que ele soltou na cena, o brief do site que o `puxar_site` escreveu, o contexto que
+    o /setup importou do Claude Code dele. É o que faz o time (e a ENTREVISTA) nascerem já
+    sabendo do negócio real.
+
+    `teto`/`por_arquivo` afinam a dose: a montagem lê muito (roda uma vez, vale o prompt
+    grande); a entrevista lê pouco (roda a cada turno, latência é UX). Vazio se a pasta não
+    existe ou está vazia, aí o fluxo segue só pelo que a pessoa contar.
+
+    COTA JUSTA por arquivo (não corte alfabético): antes, os primeiros na ordem comiam todo o
+    teto e o doc de negócio ficava de fora INTEIRO. Pior, o `_contexto-importado.md` (o global
+    genérico que o /setup puxa) começa com `_` e ordenava primeiro, comendo o orçamento antes
+    do negócio real. Agora cada arquivo entra com uma fatia e o import genérico vai por último."""
     from pathlib import Path as _P
+    if not base:
+        return ""
     pasta = _P(base) / "contexto" / "referencia"
     if not pasta.is_dir():
         return ""
+    arquivos = [f for f in pasta.rglob("*")
+                if f.is_file() and f.suffix.lower() in (".md", ".txt", ".csv")
+                and f.name.lower() != "readme.md"]
+    if not arquivos:
+        return ""
+    # o import automático genérico vai por ÚLTIMO: o doc de negócio que o comprador conectou
+    # importa mais que o CLAUDE.md global que o /setup puxou. Empate, ordem alfabética estável.
+    arquivos.sort(key=lambda f: (f.name.startswith("_contexto-importado"), f.name.lower()))
+    # teto de arquivos: um comprador com 500 docs na pasta não pode zerar a cota de cada um
+    # nem estourar a memória. 40 é folgado pro caso real (2 a 10 docs).
+    arquivos = arquivos[:40]
+    cota = max(600, min(por_arquivo, teto // len(arquivos)))  # fatia justa, piso decente
     partes, total = [], 0
-    for f in sorted(pasta.rglob("*")):
-        if f.is_file() and f.suffix.lower() in (".md", ".txt", ".csv") \
-                and f.name.lower() != "readme.md" and total < 60000:
-            try:
-                txt = f.read_text(encoding="utf-8", errors="ignore")[:20000]
-            except OSError:
-                continue
-            partes.append(f"### {f.relative_to(pasta).as_posix()}\n{txt}")
-            total += len(txt)
+    for f in arquivos:
+        if total >= teto:
+            break
+        try:  # lê SÓ a cota (não o arquivo todo): um .csv de vários GB não vai pra RAM
+            with f.open(encoding="utf-8", errors="ignore") as fh:
+                txt = fh.read(cota)
+        except OSError:
+            continue
+        partes.append(f"### {f.relative_to(pasta).as_posix()}\n{txt}")
+        total += len(txt)
     return "\n\n".join(partes)
 
 
@@ -494,9 +733,24 @@ def _prompt_gerador(perfil, agentes, skills, referencia=""):
     )
 
 
+# Whitelist ESTRITA de onde a montagem pode gravar. NÃO basta "dentro de .claude/ sem ..":
+# o dossiê é conteúdo NÃO confiável (site colado, doc de terceiro) e alimenta o prompt cuja
+# saída vira arquivo no disco. Um `.claude/settings.local.json` ou `.claude/hooks/x.py` gravado
+# ali roda na PRÓXIMA sessão do Claude Code do comprador = execução de comando. Só agente
+# (.md solto em agents/) e skill (arquivo dentro de skills/<slug>/) passam. Nada de settings,
+# hooks, commands, .py, ou qualquer coisa executável.
+# O nome do arquivo de skill é SKILL.md literal, não um padrão: o _parse_blocos normaliza
+# qualquer .md de skills/<slug>/ pra SKILL.md ANTES de testar aqui, então uma classe de
+# caractere no lugar prometeria uma flexibilidade que não existe.
+_RE_AG_OK = re.compile(r"^\.claude/agents/[a-z0-9][a-z0-9-]*\.md$")
+_RE_SK_OK = re.compile(r"^\.claude/skills/[a-z0-9][a-z0-9-]*/SKILL\.md$")
+
+
 def _parse_blocos(texto):
     """Extrai os arquivos gerados dos blocos ===ARQUIVO:path=== ... ===FIM===.
-    Trava de segurança: só aceita caminhos dentro de .claude/, sem subir de pasta."""
+    Trava de segurança dura: só agente (.claude/agents/<slug>.md) ou skill markdown
+    (.claude/skills/<slug>/<arquivo>.md). Qualquer outro caminho é descartado, mesmo dentro
+    de .claude/ (settings/hooks/.py sob .claude/ seriam RCE latente com dossiê hostil)."""
     out = []
     for m in re.finditer(r"===ARQUIVO:(.+?)===\s*\n(.*?)\n===FIM===", texto, re.DOTALL):
         path = m.group(1).strip().lstrip("/").replace("\\", "/")
@@ -505,13 +759,15 @@ def _parse_blocos(texto):
         # ```): sem isso o frontmatter não fica no topo e o Claude Code não carrega o agente
         body = re.sub(r"^```[a-zA-Z]*\s*\n", "", body)
         body = re.sub(r"\n```\s*$", "", body).strip()
-        if not (body and path.startswith(".claude/") and ".." not in path):
+        if not body or ".." in path:
             continue
         # skill: o arquivo TEM que se chamar SKILL.md (o Claude Code exige), mas o modelo
         # às vezes nomeia <slug>.md. Normaliza qualquer .md dentro de skills/<slug>/.
         ms = re.match(r"(\.claude/skills/[^/]+)/[^/]+\.md$", path)
         if ms:
             path = ms.group(1) + "/SKILL.md"
+        if not (_RE_AG_OK.match(path) or _RE_SK_OK.match(path)):
+            continue  # fora da whitelist agente/skill: descarta (settings, hooks, .py, ...)
         out.append((path, body))
     return out
 
@@ -529,21 +785,70 @@ def _slugs_de(blocos):
     return ag, sk
 
 
-def _gerar_rodada(exe, prompt):
+# Motivos de a montagem não entregar o time sob medida. O comprador vê texto diferente pra
+# cada um, porque a saída dele é diferente: cota estourada se resolve esperando, CLI ausente
+# se resolve instalando. "Deu erro" pra tudo não ajuda ninguém.
+MOTIVO_LIMITE = "limite"     # a cota do plano dele acabou (o Opus tem cota própria e apertada)
+MOTIVO_SEM_CLI = "sem-cli"   # o `claude` não está no PATH
+MOTIVO_ERRO = "erro"         # qualquer outra falha do CLI
+MOTIVO_VAZIO = "vazio"       # rodou, mas não veio bloco de arquivo nenhum
+
+_RE_LIMITE = re.compile(r"limit|quota|rate.?limit|usage.*reset|too many requests", re.I)
+
+# O que o comprador lê quando o time sob medida não saiu. Uma frase por motivo, porque a
+# SAÍDA de cada um é diferente: cota se resolve esperando, CLI ausente se resolve
+# instalando. Nunca "deu erro" genérico, e nunca silêncio.
+_FRASE_MOTIVO = {
+    MOTIVO_LIMITE: "O limite do seu plano Claude acabou no meio da montagem. Montei um time "
+                   "BASE pra você começar. Quando a sua cota voltar, refaça: o time sob "
+                   "medida nasce escrito do zero pro seu caso.",
+    MOTIVO_SEM_CLI: "O comando 'claude' não está no PATH, então não deu pra escrever o time "
+                    "sob medida. Montei um time BASE. Instale o Claude Code e refaça.",
+    MOTIVO_ERRO: "O motor não conseguiu escrever o time sob medida agora. Montei um time "
+                 "BASE pra você começar. Refaça mais tarde.",
+    MOTIVO_VAZIO: "A montagem não devolveu o time sob medida. Montei um time BASE pra você "
+                  "começar. Refaça pra tentar de novo.",
+}
+
+
+def _motivo(ev, rc, err):
+    """Traduz a saída do CLI no PORQUÊ. O evento `result` do stream-json carrega
+    `is_error`, `api_error_status` e `terminal_reason`, e o 429 é o sinal de cota. Sem
+    olhar isto, estourar o limite do plano vira 'falhou' genérico e a cena mente."""
+    if ev:
+        if ev.get("api_error_status") == 429:
+            return MOTIVO_LIMITE
+        alvo = " ".join(str(ev.get(k) or "") for k in
+                        ("subtype", "terminal_reason", "result", "stop_reason"))
+        if ev.get("is_error") and _RE_LIMITE.search(alvo):
+            return MOTIVO_LIMITE
+        if ev.get("is_error"):
+            return MOTIVO_ERRO
+    if err and _RE_LIMITE.search(err):
+        return MOTIVO_LIMITE
+    return MOTIVO_ERRO if rc else MOTIVO_VAZIO
+
+
+def _gerar_rodada(exe, prompt, modelo=None):
     """Uma rodada de geração via Claude Code do comprador, em STREAMING: lê os eventos ao
-    vivo pra alimentar o log da montagem (buscas na web, arquivos escritos) e devolve os
-    blocos parseados do texto final. cwd neutro (tempdir) pra a geração NÃO herdar o
-    CLAUDE.md 'não montado' do repo do comprador, igual a entrevista faz."""
+    vivo pra alimentar o log da montagem (buscas na web, arquivos escritos) e devolve
+    `(blocos, motivo)`: motivo=None quando entregou, senão um MOTIVO_* dizendo por quê.
+    `modelo` = a escolha que o comprador fez no reveal (vence o GENESIS_MODELO).
+
+    Devolver só `[]` (como antes) apagava a diferença entre "a cota do comprador acabou" e
+    "deu ruim": o instalar caía nos esboços e a cena comemorava igual, com o contador do
+    finale confirmando um time que não existe. cwd neutro (tempdir) pra a geração NÃO herdar
+    o CLAUDE.md 'não montado' do repo do comprador, igual a entrevista faz."""
     import tempfile
     import threading
     try:
         proc = subprocess.Popen(
-            [exe, "-p", "--allowedTools", "WebSearch WebFetch",
+            [exe, "-p"] + _flags_modelo(modelo) + ["--allowedTools", "WebSearch WebFetch",
              "--output-format", "stream-json", "--verbose"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", errors="ignore", cwd=tempfile.gettempdir())
     except Exception:
-        return []
+        return [], MOTIVO_ERRO
     watchdog = threading.Timer(600, proc.kill)  # teto duro se travar sem produzir saída
     watchdog.start()
     try:
@@ -551,7 +856,7 @@ def _gerar_rodada(exe, prompt):
         proc.stdin.close()
     except Exception:
         pass
-    texto_final, buf, vistos = "", "", set()
+    texto_final, buf, vistos, ev_final = "", "", set(), None
     try:
         for linha in proc.stdout:
             linha = linha.strip()
@@ -579,34 +884,44 @@ def _gerar_rodada(exe, prompt):
                                 vistos.add(p)
                                 _mlog("Escrevendo %s" % p)
             elif tp == "result":
-                texto_final = ev.get("result") or ""
+                texto_final, ev_final = ev.get("result") or "", ev
     except Exception:
         pass
     finally:
         watchdog.cancel()
+    err = ""
+    try:
+        err = proc.stderr.read() or ""     # é aqui que o CLI conta que a cota acabou
+    except Exception:
+        pass
     try:
         proc.wait(timeout=5)
     except Exception:
         pass
-    return _parse_blocos(texto_final or buf)
+    blocos = _parse_blocos(texto_final or buf)
+    if blocos:
+        return blocos, None
+    return [], _motivo(ev_final, proc.returncode, err)
 
 
-def gerar_time(reco, referencia=""):
+def gerar_time(reco, referencia="", modelo=None):
     """A montagem de verdade: o Claude Code do COMPRADOR pesquisa na web e ESCREVE o time
     (agentes + skills) do zero, sob medida, JÁ informado pelo knowledge base do comprador
-    (`referencia`, lido de contexto/referencia/). Devolve [(caminho_rel, conteudo)]. [] se o
-    CLI não existe ou falha (aí instalar cai nos esboços válidos da entrevista)."""
+    (`referencia`, lido de contexto/referencia/). Devolve `(blocos, motivo)`:
+    blocos = [(caminho_rel, conteudo)] e motivo=None quando entregou o time sob medida;
+    [] + um MOTIVO_* quando não deu (aí instalar cai nos esboços, e o motivo é o que
+    permite a cena dizer a verdade em vez de comemorar um time que não foi escrito)."""
     exe = shutil.which("claude")
     if not exe:
-        return []
+        return [], MOTIVO_SEM_CLI
     perfil = "\n".join(f"- {_sem_html(e)}" for e in (reco.get("entendi") or [])) or "(sem perfil)"
     agentes = [a for a in (reco.get("agentes") or []) if isinstance(a, dict)
                and _slug(a.get("slug") or a.get("nome")) != "design-system"]
     skills = [s for s in (reco.get("skills") or []) if isinstance(s, dict)
               and _slug(s.get("slug") or s.get("cmd") or s.get("nome")) != "extrair-design-system"]
-    blocos = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills, referencia))
+    blocos, motivo = _gerar_rodada(exe, _prompt_gerador(perfil, agentes, skills, referencia), modelo)
     if not blocos:
-        return []
+        return [], motivo
     # completude: se a resposta cortou e faltou algum slug pedido, re-pede SÓ os que
     # faltaram (uma vez), pra o time entregue bater com o que o reveal prometeu.
     req_ag = {_slug(a.get("slug") or a.get("nome")) for a in agentes}
@@ -615,10 +930,10 @@ def gerar_time(reco, referencia=""):
     falta_ag = [a for a in agentes if _slug(a.get("slug") or a.get("nome")) not in tem_ag]
     falta_sk = [s for s in skills if _slug(s.get("slug") or s.get("cmd") or s.get("nome")) not in tem_sk]
     if falta_ag or falta_sk:
-        extra = _gerar_rodada(exe, _prompt_gerador(perfil, falta_ag, falta_sk, referencia))
+        extra, _ = _gerar_rodada(exe, _prompt_gerador(perfil, falta_ag, falta_sk, referencia), modelo)
         vistos = {rel for rel, _ in blocos}
         blocos += [(rel, body) for rel, body in extra if rel not in vistos]
-    return blocos
+    return blocos, None
 
 
 def _ler_fm(path):
@@ -734,7 +1049,7 @@ def _limpar_gerados(base):
             _sh.rmtree(d, ignore_errors=True)
 
 
-def instalar(reco, base):
+def instalar(reco, base, modelo=None):
     """Materializa o OS do comprador em `base` (a pasta MÃE), a estrutura do OS:
     - `.claude/agents/` — o TIME como SUBAGENTS REAIS do Claude Code (invocáveis), escritos
       sob medida pelo Claude Code do comprador + o `design-system` OBRIGATÓRIO (extrai + cria).
@@ -742,7 +1057,11 @@ def instalar(reco, base):
     - `contexto/` — quem o comprador é (o recheio) + a fonte a conectar.
     - `.claude/skills/` — as skills sob medida.
     - `producao/` — onde as entregas do time caem.
-    - `meu-os.json` — o manifesto do reveal. Idempotente. base = raiz do repo do comprador."""
+    - `meu-os.json` — o manifesto do reveal. Idempotente. base = raiz do repo do comprador.
+
+    `modelo` = a escolha do comprador no reveal (ex: "sonnet"), que vence o GENESIS_MODELO.
+    Devolve {caminho, sob_medida, motivo, aviso}: `sob_medida=False` quer dizer que o time
+    sob medida NÃO foi escrito e o que está no disco é esboço."""
     from pathlib import Path as _P
     base = _P(base)
     _mlog_reset()
@@ -766,7 +1085,7 @@ def instalar(reco, base):
     # medida (o produto). Fallback: sem CLI (ou geração falha), escreve esboços VÁLIDOS
     # dos agentes/skills recomendados, pra nunca travar o onboarding.
     _mlog("Contratando os especialistas: pesquisa na web + escrita do zero.")
-    gerados = gerar_time(reco, _ler_referencia(base))
+    gerados, motivo = gerar_time(reco, _ler_referencia(base), modelo)
     if gerados:
         for rel, body in gerados:
             fp = base / rel
@@ -779,6 +1098,10 @@ def instalar(reco, base):
             if ms:
                 ger_sk.add(ms.group(1))
     else:
+        # ESBOÇO: o time sob medida NÃO foi escrito. O comprador precisa saber disso (ver o
+        # `motivo` que sobe pro /status e pra cena) — o contador do finale conta arquivo no
+        # disco, e esboço também é arquivo, então sem este sinal o número comemora sozinho.
+        _mlog(_FRASE_MOTIVO.get(motivo) or _FRASE_MOTIVO[MOTIVO_ERRO])
         for a in agentes:
             slug = _slug(a.get("slug") or a.get("nome"))
             if slug == "design-system":
@@ -837,9 +1160,14 @@ def instalar(reco, base):
     (base / "meu-os.json").write_text(json.dumps(reco, ensure_ascii=False, indent=2), encoding="utf-8")
     n_agentes = len(list(agents_dir.glob("*.md")))
     n_skills = len([x for x in skills_dir.glob("*") if x.is_dir()])
+    # "sob medida" só quando FOI sob medida: no caminho do esboço a frase seria mentira, e
+    # o README é a primeira coisa que o comprador lê no repo dele.
+    _linha = (f"{n_agentes} agentes, {n_skills} skills, feitos sob medida pra você."
+              if not motivo else
+              f"{n_agentes} agentes, {n_skills} skills, em versão BASE.\n\n"
+              f"> {_FRASE_MOTIVO.get(motivo) or _FRASE_MOTIVO[MOTIVO_ERRO]}")
     (base / "README.md").write_text(
-        "# Meu OS\n\nGerado pelo Genesis Studio. "
-        f"{n_agentes} agentes, {n_skills} skills, feitos sob medida pra você.\n\n"
+        "# Meu OS\n\nGerado pelo Genesis Studio. " + _linha + "\n\n"
         "Estrutura do seu OS:\n"
         "- `.claude/agents/`: **o seu time, como subagents reais do Claude Code** (invocáveis)\n"
         "- `contexto/`: quem você é. Jogue seus docs em `contexto/referencia/` ANTES de montar, o time nasce sabendo\n"
@@ -887,7 +1215,11 @@ def instalar(reco, base):
         except Exception:
             pass
     _mlog("Time gravado no seu repositório.")
-    return base
+    # devolve O QUE ACONTECEU, não só onde: `motivo` None = time sob medida escrito do zero;
+    # senão o MOTIVO_* do esboço. O servidor sobe isso pro /status e a cena para de comemorar
+    # um time que não foi escrito.
+    return {"caminho": base, "sob_medida": not motivo, "motivo": motivo,
+            "aviso": (_FRASE_MOTIVO.get(motivo) or _FRASE_MOTIVO[MOTIVO_ERRO]) if motivo else ""}
 
 
 # --- Painel (VISUALIZAR): o OS do comprador como agência viva -------------------

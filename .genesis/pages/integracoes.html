@@ -71,7 +71,7 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-const DEMO=/[?&]demo/.test(location.search);
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK={conexoes:[
   {chave:'cerebro',ic:'🧠',ok:true,nome:'Claude Code',sub:'O motor do chat e dos builds do time. Roda na SUA assinatura, R$ 0 de token de API.'},
   {chave:'fonte',ic:'🗄️',ok:true,nome:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views (42 lojas, Oracle).'},

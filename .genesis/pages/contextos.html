@@ -119,7 +119,7 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 let arquivos=[], atual=null, modo='preview';
-const DEMO=/[?&]demo/.test(location.search);
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_CTX=[
   {rel:'CLAUDE.md',nome:'CLAUDE.md',pasta:'',kb:0.2,editavel:true},
   {rel:'contexto/perfil.md',nome:'perfil.md',pasta:'contexto',kb:0.1,editavel:true},

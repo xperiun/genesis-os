@@ -9,13 +9,15 @@ O Claude Code roda isto e a cena do Genesis abre no navegador.
 O cérebro da entrevista E da montagem é o CLAUDE CODE do comprador (na assinatura dele,
 R$ 0, sem chave paga). O OS nasce na RAIZ do repo (base = cwd, ou a env GENESIS_BASE).
 """
+import json
 import os
+import secrets
 import sys
 import webbrowser
 from pathlib import Path
 from threading import Lock, Thread, Timer
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, Response, jsonify, request, send_file
 
 AQUI = Path(__file__).resolve().parent
 PAGES = AQUI / "pages"  # os HTML das views moram em .genesis/pages/ (reorg 2026-07-10)
@@ -37,28 +39,78 @@ _estado = {"status": "idle", "caminho": None, "erro": None}
 _lock = Lock()
 _HOSTS_OK = {f"localhost:{PORTA}", f"127.0.0.1:{PORTA}", f"[::1]:{PORTA}"}
 
+# Token anti-CSRF, sorteado por processo. O bind em loopback e o guard de Host não param
+# CSRF: uma página maliciosa que o comprador abra manda POST pra localhost:7799 com o Host
+# certinho, e endpoints daqui escrevem arquivo e disparam build com acceptEdits no repo dele.
+# O token fecha isso por dois lados: (1) header custom força preflight, que falha sem CORS;
+# (2) o token viaja EMBUTIDO no HTML da página (ver _pagina), e outra origem não consegue LER
+# o corpo de uma página nossa (sem CORS), então o atacante nunca o obtém.
+_TOKEN = secrets.token_urlsafe(24)
+_MUTA = {"POST", "PUT", "DELETE", "PATCH"}
+
 
 @app.before_request
-def _guarda_host():
+def _guarda():
     # bind em 127.0.0.1 não protege contra DNS rebinding: só aceitamos Host localhost
     if (request.host or "").lower() not in _HOSTS_OK:
         return "host não permitido", 403
+    # tudo que muta estado exige o token. GET fica livre (a resposta é opaca cross-origin).
+    if request.method in _MUTA and request.headers.get("X-Genesis") != _TOKEN:
+        return jsonify({"erro": "token inválido, recarregue a página"}), 403
+
+
+# O token é injetado no HTML no serve, e o shim embrulha o `fetch` pra carimbar o header
+# sozinho. É o mecanismo INTEIRO num lugar só, e a razão é dura: exigir que cada página se
+# lembre de mandar o header é um contrato que o autor da próxima página quebra calado (foi o
+# que aconteceu: o guard entrou, só a cena foi adaptada, e tasks/agentes/contextos/skills
+# passaram a levar 403 em TODA ação, mudas, porque os fetch() delas estão em catch vazio).
+# Com o shim, `fetch('/api/tasks',{method:'POST'})` cru já sai autenticado e página nova
+# nasce coberta. Só carimba same-origin: o token nunca vaza pra host de fora.
+_SHIM = """<script>
+(function(){
+  var T=__TOKEN__, MUTA={POST:1,PUT:1,DELETE:1,PATCH:1}, f=window.fetch;
+  window.fetch=function(u,o){
+    o=o||{};
+    var alvo=(typeof u==='string'||u instanceof URL)?String(u):(u&&u.url)||'';
+    var mesma=false;
+    try{ mesma=new URL(alvo,location.href).origin===location.origin; }catch(e){}
+    if(MUTA[String(o.method||'GET').toUpperCase()]&&mesma){
+      var h=new Headers(o.headers||(u&&u.headers)||{}); h.set('X-Genesis',T);
+      o=Object.assign({},o,{headers:h});
+    }
+    return f.call(this,u,o);
+  };
+})();
+</script>"""
+
+
+def _pagina(nome):
+    """Serve uma página com o token anti-CSRF embutido (ver _SHIM). Injeta logo depois do
+    <head> pra o shim existir antes de qualquer script da página poder chamar fetch.
+
+    Embutir em vez de servir por um GET /token evita duas coisas: a corrida de boot (a página
+    podia postar antes do token chegar) e um endpoint a mais exposto pra outra origem."""
+    html = (PAGES / nome).read_text(encoding="utf-8")
+    if "<head>" not in html:   # invariante: sem <head> o shim não entra e a página quebraria
+        raise RuntimeError(f"{nome} não tem <head>: o shim do token não tem onde entrar")
+    shim = _SHIM.replace("__TOKEN__", json.dumps(_TOKEN))
+    return Response(html.replace("<head>", "<head>" + shim, 1), mimetype="text/html")
 
 
 @app.get("/")
 def home():
-    return send_file(PAGES / "genesis.html")
+    return _pagina("genesis.html")
 
 
 @app.get("/pronto")
 def pronto():
-    return send_file(PAGES / "pronto.html")
+    return _pagina("pronto.html")
 
 
 @app.get("/painel")
 def painel():
     """A superfície VISUALIZAR: o OS do comprador como agência viva (time real + pulso)."""
-    return send_file(PAGES / "painel.html")
+    return _pagina("painel.html")
 
 
 @app.get("/api/painel")
@@ -70,32 +122,32 @@ def api_painel():
 
 @app.get("/dashboard")
 def v_dashboard():
-    return send_file(PAGES / "dashboard.html")
+    return _pagina("dashboard.html")
 
 
 @app.get("/agentes")
 def v_agentes():
-    return send_file(PAGES / "agentes.html")
+    return _pagina("agentes.html")
 
 
 @app.get("/tasks")
 def v_tasks():
-    return send_file(PAGES / "tasks.html")
+    return _pagina("tasks.html")
 
 
 @app.get("/contextos")
 def v_contextos():
-    return send_file(PAGES / "contextos.html")
+    return _pagina("contextos.html")
 
 
 @app.get("/skills")
 def v_skills():
-    return send_file(PAGES / "skills.html")
+    return _pagina("skills.html")
 
 
 @app.get("/integracoes")
 def v_integracoes():
-    return send_file(PAGES / "integracoes.html")
+    return _pagina("integracoes.html")
 
 
 # --- APIs do painel: detalhe do agente, chat, layout do canvas -------------------
@@ -245,7 +297,32 @@ def favicon():
 @app.post("/api/genesis/passo")
 def passo():
     corpo = request.get_json(silent=True) or {}
-    return jsonify(genesis_motor.passo(corpo.get("historico") or []))
+    # BASE = repo do comprador: o X entrevista JÁ tendo lido o que ele conectou na cena de
+    # abastecimento (contexto/referencia/), em vez de perguntar o que já está escrito.
+    return jsonify(genesis_motor.passo(corpo.get("historico") or [], BASE,
+                                       bool(corpo.get("montar_agora"))))
+
+
+# --- Abastecimento: o que o comprador conecta ANTES da entrevista --------------
+# Três caminhos (soltar arquivo, colar o link do site, colar texto de outro assistente), um
+# destino só: contexto/referencia/, que a entrevista e a montagem leem. É o que faz o time
+# nascer sabendo do negócio, e é o passo que o produto chama de "conecte a sua realidade".
+
+@app.get("/api/genesis/contexto")
+def api_ctx_listar():
+    return jsonify({"arquivos": pb.referencia_listar(BASE)})
+
+
+@app.post("/api/genesis/contexto")
+def api_ctx_gravar():
+    c = request.get_json(silent=True) or {}
+    r = pb.referencia_gravar(BASE, c.get("nome", ""), c.get("conteudo", ""))
+    return jsonify(r) if r.get("ok") else (jsonify(r), 400)
+
+
+@app.delete("/api/genesis/contexto/<path:rel>")
+def api_ctx_remover(rel):
+    return jsonify({"ok": pb.referencia_remover(BASE, rel)})
 
 
 @app.post("/api/genesis/instalar")
@@ -255,6 +332,9 @@ def instalar():
     reco = corpo.get("recomendacao") or {}
     if not isinstance(reco, dict) or not (reco.get("agentes") or reco.get("entendi")):
         return jsonify({"ok": False, "erro": "recomendação vazia"}), 400
+    # o comprador escolheu o modelo no reveal (só aparece pra quem está em Opus). Allowlist:
+    # isto vira argv do `claude -p`, então nada de string livre vinda do corpo do POST.
+    modelo = corpo.get("modelo") if corpo.get("modelo") in ("sonnet", "opus", "haiku") else None
     with _lock:
         if _estado["status"] == "gerando":
             return jsonify({"ok": True, "status": "gerando"})
@@ -262,14 +342,18 @@ def instalar():
 
     def rodar():
         try:
-            genesis_motor.instalar(reco, BASE)
+            r = genesis_motor.instalar(reco, BASE, modelo) or {}
             # conta o time REAL no disco (o que de fato saiu), pra o finale mostrar ESSE
             # número, nunca o do modelo (que pode divergir se a geração cortar algum slug).
             n_ag = len(list((BASE / ".claude" / "agents").glob("*.md")))
             n_sk = len([x for x in (BASE / ".claude" / "skills").glob("*") if x.is_dir()])
+            # `sob_medida` viaja junto do contador de propósito: o contador conta ARQUIVO, e
+            # esboço também é arquivo. Sem este par, o finale comemora os dois casos igual.
             with _lock:
                 _estado.update({"status": "pronto", "caminho": str(BASE),
-                                "agentes": n_ag, "skills": n_sk})
+                                "agentes": n_ag, "skills": n_sk,
+                                "sob_medida": bool(r.get("sob_medida", True)),
+                                "aviso": r.get("aviso") or ""})
         except Exception as e:
             with _lock:
                 _estado.update({"status": "erro", "erro": str(e)[:200]})

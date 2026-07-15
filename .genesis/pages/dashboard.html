@@ -169,7 +169,7 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-const DEMO=/[?&]demo/.test(location.search);
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
 function relogio(){$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR');}
 setInterval(relogio,1000);relogio();
 

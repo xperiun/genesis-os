@@ -5,10 +5,12 @@ catálogo (contexto/skills) e board de tasks.
 Tudo LOCAL, na máquina do comprador, na assinatura DELE (claude -p headless, R$ 0, sem
 chave paga). Reusa o genesis_motor pros helpers (claude -p, ler frontmatter, slug). Guard
 de path em toda leitura/escrita: nunca sai de dentro do repo do comprador."""
+import ipaddress
 import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -16,6 +18,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import genesis_motor as gm
 
@@ -23,8 +26,11 @@ import genesis_motor as gm
 def abrir(base, rel):
     """Abre um arquivo/pasta do OS no app padrão do sistema (botão 'abrir' do resultado da
     task). Guard de path: só dentro do repo do comprador. Local: abre no VS Code/Explorer dele."""
-    p = _dentro(Path(base), (rel or "").strip().lstrip("/\\"))
-    if not p or not p.exists():
+    rel = (rel or "").strip().lstrip("/\\")
+    if not rel:   # path vazio resolve pra base e abriria o repo inteiro no Explorer
+        return {"ok": False, "erro": "caminho vazio"}
+    p = _dentro(Path(base), rel)
+    if not p or not p.exists() or p == Path(base).resolve():
         return {"ok": False, "erro": "não encontrado"}
     try:
         if os.name == "nt":
@@ -179,13 +185,19 @@ def contextos(base):
     return itens
 
 
-def _permitido(rel_posix):
-    """Listável/legível/gravável: um CLAUDE.md em qualquer lugar, ou algo em contexto/."""
-    return rel_posix.rsplit("/", 1)[-1] == "CLAUDE.md" \
-        or rel_posix == "contexto" or rel_posix.startswith("contexto/")
+def _permitido(rel_posix, escrita=False):
+    """LEITURA: um CLAUDE.md em qualquer lugar (o vault lista os mapas espalhados), ou algo em
+    contexto/. ESCRITA é mais estrita: só o CLAUDE.md RAIZ (o cérebro do OS) ou contexto/. Um
+    CLAUDE.md aninhado (producao/sub/CLAUDE.md) é lido, mas não gravável pelo painel: senão o
+    endpoint vira via de plantar instrução que o build roda com acceptEdits."""
+    if rel_posix == "contexto" or rel_posix.startswith("contexto/"):
+        return True
+    if escrita:
+        return rel_posix == "CLAUDE.md"          # só o cérebro raiz
+    return rel_posix.rsplit("/", 1)[-1] == "CLAUDE.md"
 
 
-def _resolve_ctx(base, rel):
+def _resolve_ctx(base, rel, escrita=False):
     rel = (rel or "").strip().lstrip("/\\")
     baseR = Path(base).resolve()
     try:
@@ -193,7 +205,7 @@ def _resolve_ctx(base, rel):
         relp = alvo.relative_to(baseR).as_posix()   # guard de path traversal
     except (ValueError, OSError):
         return None
-    return alvo if _permitido(relp) else None
+    return alvo if _permitido(relp, escrita) else None
 
 
 def ler_contexto(base, rel):
@@ -209,8 +221,8 @@ def ler_contexto(base, rel):
 
 
 def gravar_contexto(base, rel, conteudo):
-    """Grava só .md permitido (CLAUDE.md do repo ou contexto/*.md). Escrita atômica."""
-    f = _resolve_ctx(base, rel)
+    """Grava só .md permitido (CLAUDE.md RAIZ ou contexto/*.md). Escrita atômica."""
+    f = _resolve_ctx(base, rel, escrita=True)
     if not f or f.suffix.lower() != ".md":
         return False
     try:
@@ -223,6 +235,58 @@ def gravar_contexto(base, rel, conteudo):
         return False
 
 
+_ERRO_INTERNO = ("esse link aponta pra um endereço interno, use o site público da sua empresa")
+
+
+def _url_publica(url):
+    """Anti-SSRF: a URL que o comprador cola vai pro WebFetch, que roda server-side na máquina
+    dele. Devolve None se pode seguir, ou a mensagem de erro.
+
+    Duas decisões que a versão anterior errou, e por isso estão explícitas aqui:
+
+    1) PARSE com urlsplit, nunca regex na mão. `urlsplit` descarta o userinfo, então
+       `https://evil.com@169.254.169.254/` devolve hostname='169.254.169.254' e é barrado. O
+       split manual em '/' e ':' via host='evil.com@169.254.169.254', que não casa nenhum
+       prefixo e passava direto pro metadata da cloud.
+
+    2) RESOLVE o nome e testa TODOS os IPs, nunca regex de prefixo no texto do host. É o
+       único jeito de pegar os dois casos que texto nenhum revela: o IP escrito em hex/octal
+       (`0x7f.0.0.1` e `0177.0.0.1` resolvem 127.0.0.1) e o domínio público que aponta pra
+       dentro (`interno.exemplo.com` -> 10.0.0.5), que é o SSRF clássico.
+
+    Sobra o DNS rebinding (o nome pode responder outro IP quando o WebFetch resolver de novo,
+    depois da nossa checagem). Fechar isso exigiria fixar o IP e controlar o fetch, que não é
+    nosso, é do Claude Code. Fica o teto conhecido: o custo é o comprador conseguir apontar
+    pro próprio LAN dele, na máquina dele, com um domínio que ele mesmo controla."""
+    try:
+        p = urlsplit(url)
+        porta = p.port or (443 if p.scheme.lower() == "https" else 80)
+    except ValueError:            # porta lixo, colchete IPv6 torto
+        return "link inválido"
+    if p.scheme.lower() not in ("http", "https"):
+        return "link inválido"
+    host = (p.hostname or "").strip().rstrip(".")     # hostname já vem sem userinfo e minúsculo
+    if not host:
+        return "link inválido"
+    try:
+        infos = socket.getaddrinfo(host, porta, proto=socket.IPPROTO_TCP)
+    except (OSError, UnicodeError, ValueError):
+        return "não consegui resolver esse endereço, confere o link"
+    ips = {i[4][0].split("%")[0] for i in infos}      # tira o scope id do IPv6 (fe80::1%eth0)
+    if not ips:
+        return "não consegui resolver esse endereço, confere o link"
+    for bruto in ips:
+        try:
+            ip = ipaddress.ip_address(bruto)
+        except ValueError:        # não soube ler o IP: nega, não adivinha
+            return _ERRO_INTERNO
+        # is_global cobre privado/loopback/link-local/reservado/multicast num teste só, e sabe
+        # das faixas que a gente esqueceria na mão (100.64/10 CGNAT, 198.18/15 bench, IPv6).
+        if not ip.is_global:
+            return _ERRO_INTERNO
+    return None
+
+
 def puxar_site(base, url):
     """O comprador cola o LINK da empresa dele; o Claude Code DELE lê o site (WebFetch) e
     escreve um brief do negócio em contexto/referencia/<dominio>.md, que a montagem e o chat
@@ -231,8 +295,9 @@ def puxar_site(base, url):
     url = (url or "").strip()
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
-    if not re.match(r"^https?://[\w.-]+\.\w", url, re.I):
-        return {"ok": False, "erro": "link inválido"}
+    erro = _url_publica(url)
+    if erro:
+        return {"ok": False, "erro": erro}
     exe = shutil.which("claude")
     if not exe:
         return {"ok": False, "erro": "o comando 'claude' não está no PATH"}
@@ -266,6 +331,127 @@ def puxar_site(base, url):
     (ref / f"{slug}.md").write_text(texto.strip() + "\n", encoding="utf-8")
     return {"ok": True, "arquivo": f"contexto/referencia/{slug}.md", "titulo": slug,
             "resumo": gm._sem_html(texto)[:180]}
+
+
+# ---------- Referência: o knowledge base que o comprador conecta na cena ---------
+# A cena de abastecimento (antes da entrevista) grava aqui pelos 3 caminhos: soltar arquivo,
+# colar o link do site (puxar_site, acima) e colar texto de outro assistente. É a mesma pasta
+# que `gm._ler_referencia` lê na entrevista e na montagem, então o que entra aqui vira time.
+
+_EXT_REF = (".md", ".txt", ".csv")
+
+
+def _ref_dir(base):
+    d = Path(base) / "contexto" / "referencia"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _eh_doc(f):
+    """O que conta como doc CONECTADO pelo comprador. Um predicado só pros três usos (listar,
+    contar no cap, remover): quando cada um decidia por conta, o listar escondia o README do
+    template (é instrução nossa) e o remover apagava ele, porque '.md' está em _EXT_REF."""
+    return (f.is_file() and f.suffix.lower() in _EXT_REF
+            and f.name.lower() != "readme.md")
+
+
+def _slug_doc(nome):
+    """Slug pra NOME DE ARQUIVO. Não reusa gm._slug de propósito: aquele nasceu pra nomear
+    AGENTE e cai em 'agente' quando não sobra nada, então um doc chamado '文档.md' (nada de
+    ascii) viraria 'agente.md' na pasta de referência, parecendo um membro do time. Aqui o
+    default é 'doc'. Trunca em 80: nome de 500 chars estoura o MAX_PATH do Windows, e aí o
+    OSError vaza o path absoluto do servidor na mensagem de erro (info disclosure)."""
+    s = re.sub(r"[^a-z0-9]+", "-", gm._sem_acento(nome)).strip("-")[:80].strip("-")
+    return s or "doc"
+
+
+def referencia_listar(base):
+    """O que já está conectado (pra cena mostrar em vez de pedir de novo)."""
+    d = Path(base) / "contexto" / "referencia"
+    if not d.is_dir():
+        return []
+    return [{"nome": f.name, "rel": f.relative_to(d).as_posix(),
+             "kb": round(f.stat().st_size / 1024, 1)}
+            for f in sorted(d.rglob("*")) if _eh_doc(f)]
+
+
+_REF_MAX_DOCS = 60          # cap de contagem: sem isto, um cliente local enche o disco
+_REF_MAX_TOTAL = 8_000_000  # cap de soma da pasta (~8 MB de texto é mais que o time lê)
+# Serializa cap + escolha do nome + gravação. O Flask atende em thread, e a cena manda um
+# POST por arquivo solto: sem isto, dois uploads concorrentes leem o mesmo contador e escolhem
+# o mesmo path livre, e o segundo sobrescreve o primeiro CALADO (o comprador vê os dois itens
+# pintados na lista e o time nasce sem um dos documentos).
+_REF_LOCK = threading.Lock()
+
+
+def referencia_gravar(base, nome, conteudo):
+    """Grava um doc do comprador em contexto/referencia/. Guard: nome saneado (nunca sai da
+    pasta), só extensão de texto (é o que a montagem sabe ler, prometer .xlsx seria mentira),
+    teto por arquivo E cap de contagem/soma da pasta (senão um cliente local enche o disco)."""
+    conteudo = str(conteudo or "")
+    if not conteudo.strip():
+        return {"ok": False, "erro": "conteúdo vazio"}
+    if len(conteudo) > 400_000:
+        return {"ok": False, "erro": "arquivo grande demais (limite de 400 KB de texto)"}
+    nome = (str(nome or "").strip() or "colado.md").replace("\\", "/").split("/")[-1]
+    caule, ponto, ext = nome.rpartition(".")
+    ext = ("." + ext.lower()) if ponto else ""
+    if ext and ext not in _EXT_REF:
+        # binário salvo como texto vira lixo no prompt e o time nasce lendo ruído. Recusar
+        # é mais honesto que aceitar e fingir, e a mensagem já entrega a saída.
+        return {"ok": False, "erro": f"não consigo ler {ext} como texto. "
+                "Planilha, exporte em CSV. Documento, salve como .txt ou .md."}
+    if not ext:
+        caule, ext = (caule or nome), ".md"   # sem extensão, é texto colado: vira .md
+    slug = _slug_doc(caule)
+    d = _ref_dir(base)
+    with _REF_LOCK:
+        # cap da pasta inteira: nº de docs e soma de bytes. Protege contra disk-fill por
+        # gravação repetida (a chamada é gated pelo token, mas um cliente local não pode
+        # encher o disco). Contar e gravar dentro do MESMO lock: separados, dois uploads
+        # simultâneos leem o contador antes de qualquer um gravar e os dois passam.
+        docs = [f for f in d.rglob("*") if _eh_doc(f)]
+        if len(docs) >= _REF_MAX_DOCS:
+            return {"ok": False, "erro": f"você já conectou {_REF_MAX_DOCS} documentos, o "
+                    "limite. Tire algum antes de adicionar mais."}
+        if sum(f.stat().st_size for f in docs) + len(conteudo.encode("utf-8")) > _REF_MAX_TOTAL:
+            return {"ok": False, "erro": "a pasta de referência já está no limite de tamanho. "
+                    "Tire algum documento antes de adicionar mais."}
+        # 'x' = O_EXCL: quem cria, cria. Nunca sobrescreve o que o comprador já conectou,
+        # mesmo se o lock não existisse (era exists() + write, e entre um e outro cabia a
+        # requisição vizinha escolher o mesmo path).
+        f = None
+        for n in range(1, _REF_MAX_DOCS + 2):
+            alvo = d / (f"{slug}{ext}" if n == 1 else f"{slug}-{n}{ext}")
+            try:
+                with open(alvo, "x", encoding="utf-8") as fh:
+                    fh.write(conteudo)
+                f = alvo
+                break
+            except FileExistsError:
+                continue
+            except OSError:
+                # genérica: o str(OSError) carrega o path absoluto do servidor (info disclosure)
+                return {"ok": False, "erro": "não consegui gravar o arquivo"}
+        if f is None:
+            return {"ok": False, "erro": "já tem documentos demais com esse nome, "
+                    "renomeie o arquivo antes de conectar."}
+    return {"ok": True, "nome": f.name, "rel": f.name,
+            "kb": round(f.stat().st_size / 1024, 1)}
+
+
+def referencia_remover(base, rel):
+    """Tira um doc conectado (o comprador soltou o arquivo errado). Guard de path traversal,
+    e _eh_doc pra não apagar o README do template (que o listar nem mostra)."""
+    d = _ref_dir(base)
+    p = _dentro(d, (rel or "").strip().lstrip("/\\"))
+    if not p or not _eh_doc(p):
+        return False
+    try:
+        p.unlink()
+        return True
+    except OSError:
+        return False
 
 
 def _bonus_slugs():

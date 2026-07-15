@@ -161,7 +161,7 @@ a{color:inherit;text-decoration:none}
 <script>
 'use strict';
 const VIEWS = ['painel','agentes','tasks','contextos','skills','integracoes'];
-const DEMO = /[?&]demo/.test(location.search);   // /painel?demo cascateia pra todas as views
+const DEMO=false; // modo demo é só do dev, removido do build do aluno   // /painel?demo cascateia pra todas as views
 function irPara(view){
   if(!VIEWS.includes(view)) view='painel';
   document.querySelectorAll('.side-nav a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===view));

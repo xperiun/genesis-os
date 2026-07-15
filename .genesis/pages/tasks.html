@@ -145,7 +145,7 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 const FONTE_LBL={painel:'Painel',chat:'Chat',build:'Build'},ST_LBL={backlog:'A fazer',doing:'Fazendo',done:'Feito'};
-const DEMO=/[?&]demo/.test(location.search);
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_TASKS=[
   {id:'m1',titulo:'Montar o relatório de margem por loja',agente:'arquiteto-power-bi',fonte:'painel',status:'backlog',ativo:false,detalhe:'Foco nas 42 lojas, ordenar por margem',criado:'2026-07-10T09:00'},
   {id:'m2',titulo:'Alerta de ruptura de estoque no dashboard',fonte:'chat',status:'doing',ativo:true,detalhe:'',criado:'2026-07-10T09:10'},

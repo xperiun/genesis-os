@@ -202,7 +202,7 @@ if(window.self!==window.top)document.documentElement.classList.add('embedded');
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const CORES=['#53E7EA','#56C8B0','#7FD9DE','#3FBFC4','#53E7EA','#56C8B0','#7FD9DE','#E0A44C'];
-const DEMO=/[?&]demo/.test(location.search);
+const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const cssEsc=s=>window.CSS&&CSS.escape?CSS.escape(String(s)):String(s);
 
 const W={ceo:240,agent:214}, GAPX=36, ROWY=230, AGYH=172;

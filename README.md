@@ -7,9 +7,11 @@ do zero pro seu caso. Roda na sua assinatura do Claude Code, R$ 0 de API.
 ## Começar (uma vez só)
 
 1. Abra esta pasta no VS Code com o Claude Code.
-2. Digite **`/config-os`** no Claude Code. (É sempre a primeira coisa.)
-3. Faça a entrevista na tela. No fim, seu OS nasce aqui no repo.
-4. Volte pro Claude Code e comece a trabalhar (ex: `/relatorio-executivo`).
+2. Digite **`/setup`** no Claude Code. (É a única coisa que você digita aqui.)
+3. O Genesis abre no navegador: conecte o material do seu negócio e faça a entrevista. No
+   fim, seu OS nasce aqui no repo.
+4. Volte pro Claude Code e comece a trabalhar (ex: `/relatorio-executivo`), ou rode
+   **`/painel`** pra abrir a sala de controle do seu OS.
 
 Detalhe em `CLAUDE.md`.
 
@@ -25,4 +27,4 @@ Detalhe em `CLAUDE.md`.
 
 Roda na sua assinatura do Claude Code. Sem chave de API paga, sem mensalidade.
 
-Quer refazer o time? Peça "sobe o localhost" de novo. Suas entregas em `producao/` ficam intactas.
+Quer refazer o time? Rode `/setup` de novo. Suas entregas em `producao/` ficam intactas.

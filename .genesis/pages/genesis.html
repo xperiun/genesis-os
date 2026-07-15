@@ -57,12 +57,79 @@
   .passos .p.ok .b{background:rgba(86,200,176,.14);border-color:rgba(86,200,176,.5);color:var(--live)}
   .passos .p.now{color:var(--text)} .passos .p.now .b{background:rgba(83,231,234,.14);border-color:rgba(83,231,234,.55);color:var(--cyan)}
   .passos .sep{width:20px;height:1px;background:var(--line)}
+  /* o rail de 5 passos força ~727px de largura e cria scroll horizontal no mobile. Abaixo de
+     720px, colapsa pra só o passo atual (o resto vira ruído numa tela estreita). */
+  @media (max-width:720px){
+    .passos .p:not(.now){display:none} .passos .sep{display:none}
+    .passos{font-size:var(--fs-meta)}
+    /* item de grid não encolhe abaixo do min-content sem min-width:0, e o padding lateral de
+       40px soma 80px: junto, estouram a viewport e criam scroll horizontal na entrevista. */
+    .conversa{min-width:0}
+    .conv-top{padding:18px 20px 6px} .fluxo{padding:14px 20px 8px}
+    .barra{margin:8px 20px}
+    /* lado a lado, os 2 escapes quebram em 2 linhas cada e encostam no rodapé. Empilha, com
+       o "monta já" em cima (column-reverse): é a ação mais provável de quem chegou até aqui. */
+    .barra-sub{margin:0 20px 14px;flex-direction:column-reverse;align-items:stretch;gap:6px}
+    .msg{max-width:100%}
+    /* o input tem flex:1 mas min-width auto, e o botão é nowrap: juntos estouram a barra */
+    .resp{min-width:0} .enviar{padding:14px 14px;flex-shrink:0}
+  }
   .eyebrow{font-size:var(--fs-micro);letter-spacing:.22em;color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;gap:9px;margin-bottom:12px}
   .eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 9px var(--cyan);animation:pulsa 1.7s infinite}
 
   /* fases */
   .fase{flex:1;min-height:0;animation:faseIn .5s ease-out}
   @keyframes faseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ---- ABASTECIMENTO (o comprador conecta o mundo dele ANTES da entrevista) ---- */
+  #fase-abastecer{overflow-y:auto}
+  .ab-wrap{max-width:1080px;margin:0 auto;padding:30px 40px 40px}
+  .ab-hero h1{font-size:var(--fs-hero);font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+  .ab-hero h1 b{color:var(--amber-glow);font-weight:700}
+  .ab-hero p{font-size:var(--fs-emph);color:var(--text-dim);margin-top:11px;max-width:64ch;line-height:1.55}
+  /* stretch (não start): os 3 caminhos são irmãos, altura desigual faz a cena parecer quebrada */
+  .ab-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px;align-items:stretch}
+  .ab-card{background:linear-gradient(180deg,var(--surface-1),rgba(16,21,28,.4));border:1px solid var(--line);
+    border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:9px;transition:border-color .2s,box-shadow .2s}
+  .ab-card:hover{border-color:var(--line-hud);box-shadow:0 0 26px -16px rgba(83,231,234,.5)}
+  .ab-card.drop{cursor:pointer} .ab-card.dragover{border-color:var(--cyan);box-shadow:0 0 30px -12px rgba(83,231,234,.65);background:rgba(83,231,234,.05)}
+  .ab-ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;
+    background:rgba(83,231,234,.09);border:1px solid rgba(83,231,234,.26)}
+  .ab-card h3{font-size:var(--fs-card);font-weight:600;letter-spacing:-.01em}
+  .ab-card p{font-size:var(--fs-meta);color:var(--text-dim);line-height:1.5;flex:1}
+  .ab-card p b{color:var(--text)}
+  .ab-cta{font-size:var(--fs-meta);color:var(--cyan);border:1px dashed rgba(83,231,234,.4);border-radius:var(--r-md);
+    padding:11px;text-align:center;transition:background .2s}
+  .ab-card.drop:hover .ab-cta{background:rgba(83,231,234,.07)}
+  .ab-linha{display:flex;gap:8px}
+  .ab-in{flex:1;min-width:0;padding:10px 12px;border-radius:var(--r-md);background:var(--void);border:1px solid var(--line);
+    color:var(--text);font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);outline:none}
+  .ab-in:focus{border-color:var(--cyan)} .ab-in::placeholder{color:var(--text-muted)}
+  textarea.ab-in{resize:vertical;min-height:64px;font-family:"IBM Plex Mono",monospace;line-height:1.45}
+  .ab-bt{padding:10px 14px;border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line);
+    color:var(--text);font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);font-weight:600;cursor:pointer;
+    white-space:nowrap;transition:border-color .2s,color .2s}
+  .ab-bt:hover{border-color:var(--cyan);color:var(--cyan)}
+  .ab-bt:disabled{opacity:.45;cursor:default;border-color:var(--line);color:var(--text-muted)}
+  .ab-bt.full{width:100%;text-align:center}
+  /* o que já está conectado: a prova de que o material virou arquivo de verdade */
+  .ab-lista{margin-top:22px;display:flex;flex-direction:column;gap:7px;min-height:22px}
+  .ab-item{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:var(--r-md);
+    background:rgba(86,200,176,.06);border:1px solid rgba(86,200,176,.26);font-size:var(--fs-meta);animation:sobe .3s ease-out}
+  .ab-item .ok{color:var(--live);font-size:var(--fs-body)}
+  .ab-item .nm{flex:1;font-family:"IBM Plex Mono",monospace;color:var(--text)}
+  .ab-item .kb{color:var(--text-muted);font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro)}
+  .ab-item .x{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-body);padding:0 4px}
+  .ab-item .x:hover{color:var(--error)}
+  .ab-item.erro{background:rgba(210,104,94,.07);border-color:rgba(210,104,94,.34)} .ab-item.erro .ok{color:var(--error)}
+  .ab-item.load{background:var(--surface-1);border-color:var(--line)} .ab-item.load .ok{color:var(--cyan);animation:pulsa 1.2s infinite}
+  .ab-acoes{margin-top:26px;display:flex;align-items:center;justify-content:space-between;gap:14px;
+    border-top:1px solid var(--line);padding-top:20px}
+  .ab-nota{font-size:var(--fs-meta);color:var(--text-muted);max-width:52ch;line-height:1.45}
+  .ghost{background:none;border:none;color:var(--text-muted);font-family:"Space Grotesk",sans-serif;
+    font-size:var(--fs-meta);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .ghost:hover{color:var(--text-dim)}
+  @media (max-width:900px){ .ab-cards{grid-template-columns:1fr} .ab-wrap{padding:22px} }
 
   /* ---- ENTREVISTA ---- */
   #fase-entrevista{display:grid;grid-template-columns:1fr 380px}
@@ -87,7 +154,11 @@
   .typing{display:flex;gap:5px;padding:14px 15px} .typing i{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:tp 1.2s infinite}
   .typing i:nth-child(2){animation-delay:.2s} .typing i:nth-child(3){animation-delay:.4s}
   @keyframes tp{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
-  .barra{flex-shrink:0;margin:8px 40px 22px;display:flex;gap:11px}
+  .barra{flex-shrink:0;margin:8px 40px 8px;display:flex;gap:11px}
+  /* 2 escapes: "recomeçar" à esquerda (sempre), "monta já" à direita (só com 2+ respostas).
+     Com o da direita escondido, o space-between deixa o "recomeçar" sozinho à esquerda. */
+  .barra-sub{flex-shrink:0;margin:0 40px 18px;display:flex;align-items:center;
+    justify-content:space-between;gap:12px}
   .resp{flex:1;padding:14px 17px;border-radius:12px;background:var(--surface-1);border:1px solid var(--line);color:var(--text);font-family:"Space Grotesk",sans-serif;font-size:var(--fs-emph);outline:none}
   .resp:focus{border-color:var(--cyan);box-shadow:inset 0 0 16px -12px rgba(83,231,234,.6)} .resp::placeholder{color:var(--text-muted)}
   .enviar{padding:14px 20px;border-radius:12px;font-family:"Space Grotesk",sans-serif;font-size:var(--fs-body);font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;
@@ -144,6 +215,16 @@
   .btn:hover{box-shadow:0 0 26px -6px rgba(83,231,234,.75),inset 0 0 16px -6px rgba(83,231,234,.55)}
   .csub{font-size:var(--fs-meta);color:var(--text-muted);margin-top:11px;line-height:1.5} .free{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-micro);letter-spacing:.1em;color:var(--live);margin-top:11px;text-transform:uppercase} .free i{width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live)}
   .refazer{background:none;border:none;color:var(--text-muted);font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);cursor:pointer;text-align:center;padding:4px} .refazer:hover{color:var(--text)}
+  /* aviso de modelo: âmbar (o núcleo/energia do DS), não cyan, pra não competir com o CTA
+     que vem logo abaixo dele */
+  .modelo{margin-bottom:12px;padding:14px 15px;border-radius:13px;background:linear-gradient(180deg,rgba(224,164,76,.06),rgba(16,21,28,.72));border:1px solid rgba(224,164,76,.32)}
+  .modelo .mh{font-size:var(--fs-meta);font-weight:600;color:var(--amber-glow)}
+  .modelo .mh b{color:var(--amber-glow)}
+  .modelo p{font-size:var(--fs-micro);color:var(--text-dim);line-height:1.55;margin-top:6px}
+  .modelo p b{color:var(--text)}
+  .mopt{display:flex;align-items:flex-start;gap:8px;margin-top:10px;cursor:pointer;font-size:var(--fs-micro);color:var(--text);line-height:1.5}
+  .mopt input{margin-top:2px;accent-color:var(--amber-glow);cursor:pointer;flex-shrink:0}
+  .mopt b{color:var(--amber-glow)}
 
   /* ---- MONTAGEM ---- */
   #fase-montagem{display:flex;flex-direction:column}
@@ -174,6 +255,9 @@
   #finale .stats{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(16,21,28,.6);backdrop-filter:blur(6px)} #finale .s{padding:11px 22px;border-right:1px solid var(--line)} #finale .s:last-child{border-right:none}
   #finale .s .v{font-family:"Space Grotesk",sans-serif;font-size:var(--fs-detail);font-weight:700;line-height:1;font-variant-numeric:tabular-nums} #finale .s .v.a{color:var(--cyan)} #finale .s .v.b{color:var(--cyan)} #finale .s .v.c{color:var(--amber-glow)} #finale .s .l{font-size:var(--fs-micro);letter-spacing:.14em;color:var(--text-muted);text-transform:uppercase;margin-top:6px}
   #finale .btn{width:auto;margin-top:16px;padding:14px 30px} .fsub{font-size:var(--fs-meta);color:var(--text-muted);margin-top:12px}
+  /* time BASE (o sob medida não saiu): legível, não comemorativo. Cabe a frase inteira do
+     motivo, que é longa de propósito, porque ela carrega a saída pro comprador. */
+  .fsub.alerta{color:var(--text);max-width:62ch;margin-left:auto;margin-right:auto;line-height:1.55}
 
   /* toasts compartilhados */
   #aceite{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(160%);opacity:0;z-index:60;display:flex;align-items:center;gap:12px;padding:12px 18px;border-radius:13px;background:linear-gradient(180deg,var(--surface-2),var(--surface-1));border:1px solid rgba(86,200,176,.5);box-shadow:0 20px 50px -20px rgba(86,200,176,.5);transition:transform .45s cubic-bezier(.2,.7,.2,1),opacity .45s}
@@ -206,8 +290,63 @@
   <div class="passos mono" id="passos"></div>
 </header>
 
+<!-- FASE 0: ABASTECIMENTO — o comprador conecta o mundo dele ANTES da entrevista.
+     Três caminhos, um destino só (contexto/referencia/), que a entrevista e a montagem leem.
+     É aqui que "conecte a sua realidade" vira arquivo de verdade no repo, não prosa. -->
+<main id="fase-abastecer" class="fase">
+  <div class="ab-wrap">
+    <div class="ab-hero">
+      <div class="eyebrow"><i></i><span>Antes de tudo</span></div>
+      <h1>Me mostra o seu <b>mundo</b> antes de eu te entrevistar.</h1>
+      <p>Tudo que você conectar aqui, o seu time nasce sabendo, e eu paro de te perguntar o
+         que já está escrito. Dá pra pular: aí eu monto só pelo que você me contar, e o time
+         sai mais genérico.</p>
+    </div>
+
+    <div class="ab-cards">
+      <label class="ab-card drop" id="ab-drop" tabindex="0" role="button">
+        <div class="ab-ic">📄</div>
+        <h3>Solte seus documentos</h3>
+        <p>Quem você é, seus produtos, seu tom de voz, seus números, seus casos. Texto:
+           <b>.md</b>, <b>.txt</b> ou <b>.csv</b>. Planilha, exporte em CSV.</p>
+        <span class="ab-cta">Escolher arquivos, ou arrastar aqui</span>
+        <input type="file" id="ab-file" accept=".md,.txt,.csv" multiple hidden>
+      </label>
+
+      <div class="ab-card">
+        <div class="ab-ic">🔗</div>
+        <h3>Cole o link do seu site</h3>
+        <p>Eu leio ele e as páginas principais, e escrevo o brief do seu negócio sozinho.</p>
+        <form class="ab-linha" id="ab-site-form" autocomplete="off">
+          <input class="ab-in" id="ab-site" placeholder="suaempresa.com.br" maxlength="200">
+          <button class="ab-bt" type="submit" id="ab-site-bt">Ler</button>
+        </form>
+      </div>
+
+      <div class="ab-card">
+        <div class="ab-ic">💬</div>
+        <h3>Traga de outro assistente</h3>
+        <p>Usa ChatGPT, Claude ou Gemini? Copie o prompt, cole lá, e traga a resposta pra cá.</p>
+        <button class="ab-bt full" id="ab-prompt-bt">Copiar o prompt</button>
+        <textarea class="ab-in" id="ab-colar" placeholder="Cole aqui a resposta que ele te deu..." maxlength="200000"></textarea>
+        <button class="ab-bt full" id="ab-colar-bt">Conectar isto</button>
+      </div>
+    </div>
+
+    <div class="ab-lista" id="ab-lista"></div>
+
+    <div class="ab-acoes">
+      <div class="ab-nota" id="ab-nota">Nada conectado ainda. Quanto mais real o material, mais afiado o time sai.</div>
+      <div class="ab-linha">
+        <button class="ghost" id="ab-pular">Pular, me entrevista direto</button>
+        <button class="enviar" id="ab-seguir">Bora pra entrevista →</button>
+      </div>
+    </div>
+  </div>
+</main>
+
 <!-- FASE 1: ENTREVISTA -->
-<main id="fase-entrevista" class="fase">
+<main id="fase-entrevista" class="fase" hidden>
   <section class="conversa">
     <div class="conv-top">
       <div class="eyebrow"><i></i><span id="ent-eyebrow">O X está te conhecendo</span></div>
@@ -219,6 +358,12 @@
       <input id="resp" class="resp" placeholder="Digite sua resposta..." maxlength="600">
       <button class="enviar" type="submit" id="btn-enviar">Responder →</button>
     </form>
+    <!-- escapes: o comprador nunca fica refém do modelo querendo perguntar mais (montar já),
+         nem preso na entrevista sem poder voltar pra conectar o material dele (recomeçar) -->
+    <div class="barra-sub" id="barra-sub">
+      <button class="refazer js-refazer">↺ recomeçar do contexto</button>
+      <button class="ghost" id="btn-montar-ja" hidden>Já deu, monta meu time com o que você já sabe →</button>
+    </div>
   </section>
   <aside class="inbox">
     <div class="inbox-top">
@@ -249,10 +394,24 @@
     <aside class="rev-rail">
       <div class="painel"><div class="ph">Seu OS em números</div><div class="nums" id="rev-nums"></div></div>
       <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="rev-fonte">—</p><small id="rev-fonte-sub"></small></div>
+      <!-- ANTES do CTA de propósito: é uma escolha que só vale se for feita antes de apertar
+           o botão. Embaixo dele, quem clica primeiro nunca leria.
+           Só aparece pra quem a entrevista rodou em OPUS (o motor devolve o modelo real em
+           `passo.modelo`). O Opus tem cota SEPARADA e apertada: é ela que acaba no meio da
+           montagem e faz sair time base. Aviso informado, no momento em que a escolha
+           importa, e só pra quem precisa, em vez de perguntar o plano pra todo mundo. -->
+      <div class="modelo" id="rev-modelo" hidden>
+        <div class="mh">Vou montar com o <b>Opus</b></div>
+        <p>É o modelo mais fundo, e é o que a sua máquina usa. Só que ele tem uma cota
+          própria, mais apertada: se ela acabar no meio, sai um time <b>base</b> em vez do
+          sob medida. No plano <b>Pro</b> isso é comum.</p>
+        <label class="mopt"><input type="checkbox" id="opt-sonnet">
+          <span>Montar com <b>Sonnet</b> (puxa da cota maior, mais seguro no Pro)</span></label>
+      </div>
       <div class="cta"><button class="btn" id="btn-darvida">Dar vida ao meu OS →</button>
         <div class="csub">Vou contratar o time e preparar seu OS. Você ajusta tudo depois.</div>
         <div class="free"><i></i>Roda no seu PC, na sua assinatura Claude.</div></div>
-      <button class="refazer" id="btn-refazer">↺ refazer a entrevista</button>
+      <button class="refazer js-refazer" id="btn-refazer">↺ recomeçar do contexto</button>
     </aside>
   </div>
 </main>
@@ -308,18 +467,158 @@ function keyclick(v=0.05){
 }
 function keyburst(n=7,gap=52,v=.035){ for(let i=0;i<n;i++) setTimeout(()=>keyclick(v+Math.random()*.02),i*gap); }
 
+// O token anti-CSRF não aparece aqui de propósito: o servidor injeta um shim no <head> que
+// embrulha o fetch e carimba o header sozinho (ver _pagina/_SHIM no servidor_genesis.py).
+// api() é só o teto de tempo do cliente.
+function api(url,opts={}){
+  // timeout no cliente: o /passo é síncrono e o motor pode encadear uma 2ª tentativa do
+  // claude -p. Sem teto aqui, um turno ruim pendura a entrevista por minutos, mudo. O
+  // servidor tem orçamento de 170s (_ORCAMENTO_PASSO), então 200s aqui é a folga em cima
+  // dele: quem corta é o servidor, e a gente só protege contra ele não responder nada.
+  const ctrl=new AbortController();
+  const to=setTimeout(()=>ctrl.abort(),opts.timeout||200000);
+  return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(to));
+}
+
 // ---------- passos (rail do topo) ----------
-const PASSOS=['Entrevista','Diagnóstico','Seu time','Montagem'];
-function renderPassos(idx){ // idx = fase atual (0..3)
+const PASSOS=['Contexto','Entrevista','Diagnóstico','Seu time','Montagem'];
+function renderPassos(idx){ // idx = fase atual (0..4)
   $('#passos').innerHTML=PASSOS.map((p,i)=>{
     const cls=i<idx?'ok':(i===idx?'now':''); const b=i<idx?'✓':(i+1);
     return `<div class="p ${cls}"><span class="b">${b}</span>${p}</div>`+(i<PASSOS.length-1?'<span class="sep"></span>':'');
   }).join('');
 }
 function mostrarFase(nome,idx){
-  ['entrevista','reveal','montagem'].forEach(f=>{const el=$('#fase-'+f);el.hidden=(f!==nome);});
+  ['abastecer','entrevista','reveal','montagem'].forEach(f=>{const el=$('#fase-'+f);el.hidden=(f!==nome);});
   renderPassos(idx);
 }
+
+// ---------- rascunho da entrevista (um F5 não pode custar a conversa toda) ----------
+const CHAVE='genesis:entrevista';
+function salvar(){
+  if(DEMO) return;
+  try{ localStorage.setItem(CHAVE,JSON.stringify({historico,recomendacao,t:Date.now()})); }catch(e){}
+}
+function limpar(){ try{ localStorage.removeItem(CHAVE); }catch(e){} }
+function rascunho(){
+  if(DEMO) return null;
+  try{
+    const d=JSON.parse(localStorage.getItem(CHAVE)||'null');
+    // rascunho corrompido (historico não-array, item sem role) explode o boot ANTES do
+    // renderPassos e some com o rail. Valida a forma, não só a existência.
+    const forma = d && Array.isArray(d.historico) && d.historico.length
+      && d.historico.every(m=>m && typeof m.role==='string' && typeof m.texto==='string');
+    // TEM que ter uma fala DELE: o salvar() roda quando o X pergunta, antes de a pessoa
+    // responder, então "abriu, o X perguntou, fechou a aba" já gravava rascunho. Retomar
+    // isso não retoma nada (não foi dito nada) e, pior, PULA o abastecimento por 6h: a
+    // pessoa perde a única tela onde conecta o material dela, e a entrevista recomeça no
+    // genérico por não ter dossiê. Sem resposta no histórico não há conversa pra salvar.
+    const ok = forma && d.historico.some(m=>m.role==='voce');
+    // rascunho velho é pior que rascunho nenhum: retomar a conversa de ontem confunde
+    if(!ok || Date.now()-(d.t||0)>6*3600*1000){ limpar(); return null; }
+    return d;
+  }catch(e){ return null; }
+}
+
+// ---------- abastecimento: 3 caminhos, um destino (contexto/referencia/) ----------
+const PROMPT_EXPORT=`Preciso exportar o contexto do meu negócio das nossas conversas pra configurar uma ferramenta nova. Responda com o que você sabe sobre mim nestas categorias. Se não souber alguma, deixe em branco, não invente:
+
+NOME:
+NEGÓCIO:
+O QUE FAÇO E PRA QUEM:
+PRINCIPAIS ATIVIDADES:
+CLIENTES:
+EQUIPE:
+FERRAMENTAS QUE USO:
+IDENTIDADE VISUAL:
+TOM DE VOZ:
+O QUE EVITAR NA MINHA COMUNICAÇÃO:
+NÚMEROS E CASOS:
+OUTROS DETALHES RELEVANTES:`;
+
+let abDemo=[];  // só o ?demo usa: a lista fingida da cena sem servidor
+function abPinta(itens){
+  const L=$('#ab-lista');
+  L.innerHTML=itens.map(a=>`<div class="ab-item"><span class="ok">✓</span><span class="nm">${esc(a.nome)}</span><span class="kb">${a.kb} KB</span><button class="x" data-rel="${esc(a.rel)}" title="tirar">✕</button></div>`).join('');
+  const n=itens.length;
+  $('#ab-nota').textContent = n
+    ? `${n} ${n===1?'documento conectado':'documentos conectados'}. Eu leio isso antes de te entrevistar, e o seu time nasce sabendo.`
+    : 'Nada conectado ainda. Quanto mais real o material, mais afiado o time sai.';
+  $('#ab-seguir').textContent = n ? 'Bora pra entrevista →' : 'Seguir sem conectar →';
+  L.querySelectorAll('.x').forEach(b=>b.addEventListener('click',async e=>{
+    e.preventDefault(); keyclick(.06);
+    if(DEMO){ abDemo=abDemo.filter(a=>a.rel!==b.dataset.rel); abPinta(abDemo); return; }
+    await api('/api/genesis/contexto/'+encodeURIComponent(b.dataset.rel),{method:'DELETE'});
+    abListar();
+  }));
+}
+async function abListar(){
+  if(DEMO) return;
+  try{ abPinta(((await (await fetch('/api/genesis/contexto')).json())||{}).arquivos||[]); }catch(e){}
+}
+function abTemp(txt,cls){ // feedback otimista enquanto o servidor trabalha
+  const d=document.createElement('div'); d.className='ab-item '+(cls||'load');
+  d.innerHTML=`<span class="ok">${cls==='erro'?'!':'◈'}</span><span class="nm">${esc(txt)}</span>`;
+  $('#ab-lista').prepend(d); return d;
+}
+async function abGravar(nome,conteudo){
+  const t=abTemp('conectando '+nome+'...');
+  try{
+    const r=await (await api('/api/genesis/contexto',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nome,conteudo})})).json();
+    t.remove();
+    if(!r.ok){ const e=abTemp(nome+': '+(r.erro||'não deu'),'erro'); setTimeout(()=>e.remove(),6000); return false; }
+    keyclick(.09); abListar(); return true;
+  }catch(e){ t.remove(); const x=abTemp(nome+': falhou','erro'); setTimeout(()=>x.remove(),6000); return false; }
+}
+async function abArquivos(lista){
+  // um de cada vez, de propósito: soltar 10 arquivos de uma vez disparava 10 FileReader e 10
+  // POST concorrentes disputando o cap da pasta, com feedback fora de ordem. Sequencial é
+  // mais lento e muito mais previsível, e a lista pinta na ordem em que a pessoa soltou.
+  for(const f of [...lista]){
+    const txt=await new Promise(res=>{ const r=new FileReader();
+      r.onload=()=>res(String(r.result||'')); r.onerror=()=>res(''); r.readAsText(f); });
+    if(txt.trim()) await abGravar(f.name,txt);
+    else { const x=abTemp(f.name+': não consegui ler esse arquivo','erro'); setTimeout(()=>x.remove(),6000); }
+  }
+}
+// soltar arquivo: o <label> já abre o seletor; aqui é o arrastar
+const abDrop=$('#ab-drop');
+['dragenter','dragover'].forEach(ev=>abDrop.addEventListener(ev,e=>{e.preventDefault();abDrop.classList.add('dragover');}));
+['dragleave','drop'].forEach(ev=>abDrop.addEventListener(ev,e=>{e.preventDefault();abDrop.classList.remove('dragover');}));
+abDrop.addEventListener('drop',e=>abArquivos(e.dataTransfer.files));
+// teclado: o <label> não dispara o input com Enter/Espaço sozinho (só clique de mouse)
+abDrop.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#ab-file').click(); }});
+$('#ab-file').addEventListener('change',e=>{abArquivos(e.target.files); e.target.value='';});
+// ler o site: o Claude Code do comprador lê e escreve o brief
+$('#ab-site-form').addEventListener('submit',async e=>{
+  e.preventDefault(); const url=$('#ab-site').value.trim(); if(!url) return;
+  keyclick(.09); const bt=$('#ab-site-bt'); bt.disabled=true; bt.textContent='Lendo...';
+  const t=abTemp('lendo '+url+', isso leva alguns segundos...');
+  try{
+    const r=await (await api('/api/contexto/puxar-site',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url})})).json();
+    t.remove();
+    if(r.ok){ $('#ab-site').value=''; abListar(); }
+    else{ const x=abTemp(r.erro||'não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
+  }catch(err){ t.remove(); const x=abTemp('não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
+  bt.disabled=false; bt.textContent='Ler';
+});
+// trazer de outro assistente
+$('#ab-prompt-bt').addEventListener('click',async()=>{
+  keyclick(.08);
+  try{ await navigator.clipboard.writeText(PROMPT_EXPORT); $('#ab-prompt-bt').textContent='Copiado, cole lá ✓';
+       setTimeout(()=>$('#ab-prompt-bt').textContent='Copiar o prompt',2600); }
+  catch(e){ $('#ab-colar').value=PROMPT_EXPORT; $('#ab-colar').select(); }
+});
+$('#ab-colar-bt').addEventListener('click',async()=>{
+  const v=$('#ab-colar').value.trim(); if(!v) return;
+  keyclick(.09);
+  if(await abGravar('contexto-do-meu-assistente.md',v)) $('#ab-colar').value='';
+});
+$('#ab-pular').addEventListener('click',()=>{keyclick(.08);irEntrevista();});
+$('#ab-seguir').addEventListener('click',()=>{keyclick(.1);irEntrevista();});
+function irEntrevista(){ mostrarFase('entrevista',1); if(!historico.length) turnoX(true); }
 
 // ---------- paleta pros cards (o backend manda o emoji `ic` de cada agente/skill) ----------
 const PALETA=['#53E7EA','#56C8B0','#7FD9DE','#3FBFC4','#53E7EA','#56C8B0','#7FD9DE','#E0A44C'];
@@ -337,6 +636,9 @@ const BONUS_SKILLS=[
 
 // ---------- estado ----------
 let historico=[], passoN=0, recomendacao=null, inboxN=0;
+// o modelo que o Claude Code DELE está usando de verdade (vem em toda resposta do /passo).
+// Só serve pra decidir se o reveal oferece trocar antes da montagem.
+let modeloDele='';
 
 // ---------- entrevista ----------
 const fluxo=$('#fluxo');
@@ -352,13 +654,19 @@ function typing(on){ let t=$('#typingmsg');
 function candidato(c){
   if(!c)return; keyclick(.07); $('#ivazio')?.remove(); inboxN++; $('#inbox-cnt').textContent=inboxN;
   const d=document.createElement('div'); d.className='rec';
-  d.innerHTML=`<div class="rt"><div class="ic">${c.ic}</div><div style="flex:1"><div class="rn">${esc(c.nome)}</div><div class="rm">${esc(c.papel||'')} · candidato</div></div><div class="rs">na fila</div></div>`;
+  d.innerHTML=`<div class="rt"><div class="ic">${esc(c.ic||'•')}</div><div style="flex:1"><div class="rn">${esc(c.nome)}</div><div class="rm">${esc(c.papel||'')} · candidato</div></div><div class="rs">na fila</div></div>`;
   $('#ilista').prepend(d);
 }
-async function perguntar(){  // devolve {done, pergunta?, recomendacao?}
+async function perguntar(montar_agora){  // devolve {done, pergunta?, recomendacao?}
   try{
-    const r=await fetch('/api/genesis/passo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({historico})});
-    return await r.json();
+    const r=await api('/api/genesis/passo',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({historico, montar_agora:!!montar_agora})});
+    // 403 (token velho, servidor reiniciado) volta {erro} sem pergunta: sem esta checagem
+    // a bolha do X sai VAZIA e a entrevista trava muda. Trata como queda, com aviso visível.
+    if(!r.ok){ return {done:false, pergunta:'Perdi o fio aqui. Atualiza a página (F5) que a gente recomeça de onde você parou.'}; }
+    const j=await r.json();
+    if(!j || (!j.done && !j.pergunta)){ return {done:false, pergunta:'Me perdi na última. Tenta responder de novo?'}; }
+    return j;
   }catch(e){ return {done:false, pergunta:'Perdi a conexão com o meu cérebro aqui. Tenta responder de novo?'}; }
 }
 // beat de suspense entre a última resposta e o diagnóstico: overlay pulsando ~3s
@@ -368,41 +676,59 @@ function montandoOverlay(){
     setTimeout(()=>{ el.classList.remove('on'); res(); }, DEMO?3000:2400);
   });
 }
-async function turnoX(inicial){
-  typing(true);
-  const res=await perguntar();
+function travar(on){
+  $('#resp').disabled=on; $('#btn-enviar').disabled=on; $('#btn-montar-ja').disabled=on;
+  // "monta já" só aparece depois de 2 respostas: antes disso não há material pra montar nada.
+  // Esconde o BOTÃO, não a barra: o "recomeçar" mora nela e tem que existir desde o 1º turno
+  // (é justamente com 0 resposta que a pessoa percebe que abriu sem conectar o material).
+  $('#btn-montar-ja').hidden = historico.filter(m=>m.role==='voce').length < 2;
+}
+async function turnoX(inicial,montar_agora){
+  travar(true); typing(true);
+  const res=await perguntar(montar_agora);
+  if(res.modelo) modeloDele=res.modelo;   // de graça, vem em toda resposta do /passo
   await new Promise(r=>setTimeout(r, DEMO?700:100));
   typing(false);
   if(res.done){ recomendacao=res.recomendacao; await montandoOverlay(); irReveal(); return; }
   bolha('x',rich(res.pergunta)); keyclick(.06); historico.push({role:'x',texto:res.pergunta});
   if(res.candidato) setTimeout(()=>candidato(res.candidato),500);
-  $('#resp').disabled=false; $('#btn-enviar').disabled=false; $('#resp').focus();
+  salvar(); travar(false); $('#resp').focus();
 }
 $('#form-resp').addEventListener('submit',e=>{
   e.preventDefault();
   const v=$('#resp').value.trim(); if(!v)return;
   keyclick(.09);
   bolha('eu',esc(v)); historico.push({role:'voce',texto:v});
-  $('#resp').value=''; $('#resp').disabled=true; $('#btn-enviar').disabled=true;
+  $('#resp').value=''; salvar();
   passoN++; turnoX(false);
+});
+$('#btn-montar-ja').addEventListener('click',()=>{
+  keyclick(.1); bolha('eu',esc('Já deu, pode montar meu time.'));
+  historico.push({role:'voce',texto:'Já deu, pode montar meu time com o que você já sabe.'});
+  passoN++; turnoX(false,true);
 });
 // cada tecla digitada pelo comprador dá o "tec" mecânico (o feel de teclado)
 $('#resp').addEventListener('keydown',e=>{ if(e.key==='Backspace'||e.key.length===1) keyclick(.03); });
 
 // ---------- reveal ----------
 function irReveal(){
-  mostrarFase('reveal',2);
+  mostrarFase('reveal',3);
+  salvar();  // reveal alcançado: um F5 aqui não pode custar a entrevista inteira
   keyburst(12,42,.045);
+  // o aviso de modelo só existe pra quem VAI se dar mal: a entrevista rodou em Opus, cuja
+  // cota é separada e apertada. Quem já está em Sonnet/Haiku não vê nada, e o palco (?demo)
+  // também não, pra a cena de apresentação não ganhar uma caixa que não é a história.
+  $('#rev-modelo').hidden = DEMO || !/opus/i.test(modeloDele);
   const r=recomendacao;
   $('#rev-entendi').innerHTML=(r.entendi||[]).map(t=>`<li><span class="c">▸</span><div>${rich(t)}</div></li>`).join('');
   $('#rev-times').innerHTML=(r.agentes||[]).map((a,i)=>{
-    return `<div class="time" style="--cor:${corIdx(i)}"><div class="tt"><div class="ic">${a.ic||'•'}</div><div class="ti"><h3>${esc(a.nome)}</h3><div class="tr">especialista sob medida</div></div><div class="tag">${esc(a.tag||'agente')}</div></div>
+    return `<div class="time" style="--cor:${corIdx(i)}"><div class="tt"><div class="ic">${esc(a.ic||'•')}</div><div class="ti"><h3>${esc(a.nome)}</h3><div class="tr">especialista sob medida</div></div><div class="tag">${esc(a.tag||'agente')}</div></div>
       <div class="por"><b>Por que:</b> ${rich(a.por||'')}</div></div>`;
   }).join('');
-  $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${s.ic||'⚡'}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${esc(s.ic||'⚡')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
   if(BONUS_SKILLS.length){
     $('#rev-bonus-lbl').hidden=false;
-    $('#rev-bonus').innerHTML=BONUS_SKILLS.map(s=>`<div class="skill bonus"><div class="si">${s.ic||'🎁'}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}<span class="tag-bonus">bônus</span></h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+    $('#rev-bonus').innerHTML=BONUS_SKILLS.map(s=>`<div class="skill bonus"><div class="si">${esc(s.ic||'🎁')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}<span class="tag-bonus">bônus</span></h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
   }
   const n=r.nums||{}; $('#rev-nums').innerHTML=`
     <div class="num a"><span class="v">${n.agentes??(r.agentes||[]).length}</span><span class="l">especialistas no seu time</span></div>
@@ -411,17 +737,41 @@ function irReveal(){
   $('#rev-fonte-sub').textContent=(r.fonte||{}).sub||'';
   window.scrollTo(0,0);
 }
-$('#btn-refazer').addEventListener('click',()=>location.reload());
+// O escape existe em toda tela onde há o que refazer: limpa o rascunho ANTES do reload
+// (senão o boot restaura e o "refazer" não refaz nada) e devolve a pessoa pro CONTEXTO, a
+// fase 0, onde ela conecta o material. Por classe, não por id: são 2 botões (entrevista e
+// reveal) com o mesmo contrato, e o próximo que alguém adicionar já nasce ligado.
+//
+// NÃO existe nas outras 2 fases, e é decisão, não esquecimento:
+//  - abastecimento: é o DESTINO deste botão. Ali ele recarregaria pra mesma tela, um botão
+//    que finge fazer algo. Quem está lá já está no começo.
+//  - montagem: o build já está rodando no repo (claude -p com acceptEdits, em background).
+//    Um reload NÃO cancela isso, só abandona a cena enquanto os arquivos continuam sendo
+//    escritos. Escape ali só honesto com um cancelamento de verdade no backend.
+document.querySelectorAll('.js-refazer').forEach(b=>
+  b.addEventListener('click',()=>{limpar();location.reload();}));
 $('#btn-darvida').addEventListener('click',()=>{keyclick(.1);irMontagem();});
 
 // ---------- montagem (o OS nasce) ----------
+// Falha da montagem tem UM lugar só: aqui. O teatro para, o erro aparece inteiro, e o
+// "vivo" nunca dispara por cima. Mentir no passo mais importante é o pecado do produto.
+let mErro=false;
+function montagemFalhou(msg){
+  mErro=true;
+  $('#term').hidden=true; $('#finale').classList.remove('on'); $('#mstatus').classList.remove('vivo');
+  $('#mstatuslin').textContent='Falhou';
+  $('#mstatush1').textContent='Deu ruim na montagem.';
+  $('#mstatussub').textContent=String(msg||'').slice(0,160);
+}
 function irMontagem(){
-  mostrarFase('montagem',3);
+  mErro=false;
+  mostrarFase('montagem',4);
+  limpar();  // a montagem começou: o rascunho da entrevista já cumpriu o papel
   const agentes=recomendacao.agentes||[];
   const wrap=$('#mtimes'); wrap.innerHTML='';
   agentes.forEach((a,i)=>{
     const d=document.createElement('div'); d.className='mtime'; d.style.setProperty('--cor',corIdx(i));
-    d.innerHTML=`<div class="mt"><div class="ic">${a.ic||'•'}</div><div><h3>${esc(a.nome)}</h3><div class="c">especialista sob medida</div></div></div>`;
+    d.innerHTML=`<div class="mt"><div class="ic">${esc(a.ic||'•')}</div><div><h3>${esc(a.nome)}</h3><div class="c">especialista sob medida</div></div></div>`;
     wrap.appendChild(d);
   });
   $('#voce').className='voce'; $('#wires').innerHTML=''; $('#finale').classList.remove('on'); $('#mstatus').classList.remove('vivo');
@@ -429,27 +779,40 @@ function irMontagem(){
   $('#mstatuslin').textContent='Dando vida ao seu OS'; $('#mstatush1').textContent='Contratando o seu time...';
   // dispara a criação REAL em background (o Claude Code pesquisa e escreve o time). O
   // teatro toca por cima; o "vivo" só dispara quando os arquivos existem de verdade.
-  if(!DEMO){ fetch('/api/genesis/instalar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recomendacao})}).catch(()=>{}); }
+  // se o POST falhar (400, 403, rede), o /status fica em 'idle' pra sempre e o teatro roda
+  // 12min pra nada. Erro do disparo é erro da montagem: mostra na hora, não deixa mentir.
+  if(!DEMO){
+    // `modelo` só vai quando ele marcou a caixa do reveal (que só aparece pra quem está em
+    // Opus). Sem marcar, o servidor decide como sempre (GENESIS_MODELO ou o default dele).
+    const escolha = $('#opt-sonnet') && $('#opt-sonnet').checked ? 'sonnet' : undefined;
+    api('/api/genesis/instalar',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({recomendacao, modelo:escolha})})
+      .then(async r=>{ if(!r.ok||!((await r.json().catch(()=>({}))).ok)) throw 0; })
+      .catch(()=>{ montagemFalhou('não consegui disparar a montagem. Recarregue a página e tente de novo.'); });
+  }
   setTimeout(()=>$('#voce').classList.add('on'),500);
   const els=[...document.querySelectorAll('.mtime')];
   els.forEach((el,i)=>setTimeout(()=>{el.classList.add('on');linha(el);keyclick(.08);aceite(agentes[i]);},1400+i*1050));
   const fim=1400+els.length*1050+400;
   setTimeout(()=>{
+    if(mErro) return;  // o disparo do instalar já falhou: NÃO reescrever o erro com teatro
     if(DEMO){ demoLog(agentes); return; }
     $('#mstatuslin').textContent='Pesquisando e escrevendo';
     keyburst(14,60,.04);
     const inicio=Date.now();
     const passos=['Pesquisando frameworks e métodos reais na web...','Escrevendo cada especialista a fundo...','Detalhando o método de cada um...','Montando as skills sob medida...','Quase lá, revisando o time...'];
     (async function poll(){
-      const seg=Math.floor((Date.now()-inicio)/1000);
+      if(mErro) return;  // guard ANTES de escrever qualquer texto: senão o teatro clobbera
+      const seg=Math.floor((Date.now()-inicio)/1000);   // o "Deu ruim" e congela num "Pesquisando..."
       $('#mstatush1').textContent=passos[Math.min(Math.floor(seg/25),passos.length-1)];
-      $('#mstatussub').textContent=`${Math.floor(seg/60)}m${String(seg%60).padStart(2,'0')}s · isso leva uns 2 a 4 min, é proposital: o seu Claude Code pesquisa na web e escreve o seu time do zero.`;
+      $('#mstatussub').textContent=`${Math.floor(seg/60)}m${String(seg%60).padStart(2,'0')}s. O seu Claude Code pesquisa na web e escreve o seu time do zero, então costuma levar de 3 a 7 min.`;
       let st={status:'gerando'};
       try{ st=await (await fetch('/api/genesis/status')).json(); }catch(e){}
+      if(mErro) return;  // o fetch do /status é await: revalida depois dele também
       if(st.log&&st.log.length){ const tb=$('#term-body'),txt=st.log.join('\n'); if(tb.textContent!==txt){tb.textContent=txt;tb.scrollTop=tb.scrollHeight;} $('#term').hidden=false; }
       if(st.status==='pronto'){ finaleVivo(agentes, st); return; }
-      if(st.status==='erro'){ $('#mstatuslin').textContent='Falhou'; $('#mstatush1').textContent='Deu ruim na montagem. '+((st.erro||'').slice(0,80)); $('#mstatussub').textContent=''; return; }
-      if(seg>12*60){ $('#mstatush1').textContent='Tá demorando demais, tenta de novo.'; $('#mstatussub').textContent=''; return; }
+      if(st.status==='erro'){ montagemFalhou(st.erro||''); return; }
+      if(seg>14*60){ montagemFalhou('passou de 14 minutos sem terminar.'); return; }
       setTimeout(poll,2000);
     })();
   },fim);
@@ -474,16 +837,32 @@ function demoLog(agentes){
   })();
 }
 function finaleVivo(agentes, st){
-  $('#flash').classList.remove('pop');void $('#flash').offsetWidth;$('#flash').classList.add('pop');
-  $('#mstatus').classList.add('vivo'); $('#mstatuslin').textContent='Pronto'; $('#mstatush1').textContent='Seu OS está vivo.'; $('#mstatussub').textContent=''; $('#term').hidden=true;
+  // O contador conta ARQUIVO no disco, e esboço também é arquivo. Então quando o time sob
+  // medida NÃO foi escrito (cota do plano estourou, CLI sumiu), o mesmo "3 agentes" com a
+  // mesma fanfarra vira mentira: o comprador comemora um time que não existe e só descobre
+  // dias depois, abrindo um agente vazio. Aqui os dois caminhos se separam.
+  const sobMedida = !st || st.sob_medida !== false;   // demo e ausência do campo = sob medida
   const n=recomendacao.nums||{};
   // no ao vivo, mostra a contagem REAL do disco (st vem do /status), nunca o número do
   // modelo: se a geração cortar um slug, o finale bate com o que existe no repo.
   const nAg=(st&&st.agentes!=null)?st.agentes:(n.agentes??agentes.length);
   const nSk=(st&&st.skills!=null)?st.skills:(n.skills??(recomendacao.skills||[]).length);
   $('#finale-stats').innerHTML=`<div class="s"><div class="v a">${nAg}</div><div class="l">agentes</div></div><div class="s"><div class="v c">${nSk}</div><div class="l">skills</div></div>`;
-  $('#finale-sub').textContent=DEMO?'(demo) no ao vivo, o Claude Code pesquisa e escreve seu time no seu repo, e te leva pra trabalhar.':'seu OS foi gravado no seu repo: contexto, agentes e skills. bora trabalhar.';
+  $('#mstatuslin').textContent='Pronto'; $('#mstatussub').textContent=''; $('#term').hidden=true;
   $('#finale').classList.add('on');
+
+  if(!sobMedida){
+    // sem flash, sem fanfarra, sem "vivo": nada aqui merece comemoração. O texto diz o que
+    // aconteceu e qual é a saída (o `aviso` vem do motor, uma frase por motivo).
+    $('#mstatush1').textContent='Seu OS nasceu, em versão base.';
+    $('#finale-sub').textContent = st.aviso || 'O time sob medida não foi escrito. Refaça pra tentar de novo.';
+    $('#finale-sub').classList.add('alerta');
+    return;
+  }
+
+  $('#flash').classList.remove('pop');void $('#flash').offsetWidth;$('#flash').classList.add('pop');
+  $('#mstatus').classList.add('vivo'); $('#mstatush1').textContent='Seu OS está vivo.';
+  $('#finale-sub').textContent=DEMO?'(demo) no ao vivo, o Claude Code pesquisa e escreve seu time no seu repo, e te leva pra trabalhar.':'seu OS foi gravado no seu repo: contexto, agentes e skills. bora trabalhar.';
   try{const ac=new (window.AudioContext||window.webkitAudioContext)();[0,.11,.22,.34].forEach((d,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=[660,880,1108,1318][i];o.connect(g);g.connect(ac.destination);const s=ac.currentTime+d;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.1,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+.5);o.start(s);o.stop(s+.55);});}catch(e){}
 }
 function linha(el){
@@ -504,8 +883,19 @@ $('#btn-entrar').addEventListener('click',()=>{ keyclick(.1);
   location.href = DEMO ? base+'?demo' : base; });
 
 // ---------- boot ----------
-mostrarFase('entrevista',0);
-turnoX(true);  // o X abre a conversa
+(async function boot(){
+  const d=rascunho();
+  if(d){                       // F5 no meio da entrevista: retoma de onde parou
+    historico=d.historico||[]; recomendacao=d.recomendacao||null;
+    passoN=historico.filter(m=>m.role==='voce').length;
+    historico.forEach(m=>bolha(m.role==='x'?'x':'eu', m.role==='x'?rich(m.texto):esc(m.texto)));
+    if(recomendacao){ irReveal(); return; }
+    mostrarFase('entrevista',1); travar(false); $('#resp').focus();
+    return;
+  }
+  abListar();                  // mostra o que o /setup já importou, se importou
+  mostrarFase('abastecer',0);  // o comprador conecta o mundo dele ANTES da entrevista
+})();
 </script>
 </body>
 </html>
