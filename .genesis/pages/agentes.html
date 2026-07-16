@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
-     Canvas do time do OS do comprador: VOCÊ no topo, os agentes ligados DIRETO em você
+     Canvas dos agentes do OS do comprador: VOCÊ no topo, os agentes ligados DIRETO em você
      (2 níveis, sem squad, o OS do aluno é uma equipe plana). Zoom/pan/arrastar + chat direto
-     com o agente (persona = o .agent.md dele, na assinatura do comprador). Lê /api/painel. -->
+     com o agente (persona = o .agent.md dele, na assinatura do comprador, STREAMING com
+     sessão viva + fallback single-shot). Lê /api/painel. -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<title>Meu time · Canvas</title>
+<title>Agentes · Meu OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -133,10 +134,22 @@
   .ch-empty .em{font-size:28px;display:block;margin-bottom:10px;opacity:.8;color:var(--cyan-deep)}
   .msg{max-width:88%;font-size:var(--fs-body);line-height:1.6;padding:11px 14px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word}
   .msg.user{align-self:flex-end;background:rgba(83,231,234,.1);border:1px solid rgba(83,231,234,.26);border-bottom-right-radius:5px;color:var(--text)}
-  .msg.bot{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:5px;color:var(--text)}
+  .msg.bot{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-bottom-left-radius:5px;color:var(--text);white-space:normal}
   .msg.bot.pend{color:var(--text-muted)}
   .msg.bot.pend .th{display:inline-block;animation:pensa 1.2s infinite}
+  .msg.bot.pend::after{content:'▍';color:var(--cyan);animation:pensa 1s infinite}
   @keyframes pensa{0%,100%{opacity:.35}50%{opacity:1}}
+  /* markdown das respostas do agente (só .msg.bot; a fala do comprador fica texto puro) */
+  .msg.bot p{margin:8px 0}.msg.bot p:first-child{margin-top:0}.msg.bot p:last-child{margin-bottom:0}
+  .msg.bot h3,.msg.bot h4,.msg.bot h5,.msg.bot h6{font-size:var(--fs-emph);font-weight:600;margin:12px 0 6px;color:var(--text)}
+  .msg.bot ul,.msg.bot ol{margin:8px 0 8px 20px}.msg.bot li{margin:4px 0}
+  .msg.bot code{font-family:"IBM Plex Mono",monospace;font-size:.9em;background:rgba(83,231,234,.1);border:1px solid rgba(83,231,234,.2);border-radius:4px;padding:1px 5px;color:var(--cyan)}
+  .msg.bot pre{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;overflow-x:auto;margin:9px 0}
+  .msg.bot pre code{background:none;border:none;padding:0;color:var(--text-dim);font-size:var(--fs-meta);line-height:1.6}
+  .msg.bot blockquote{border-left:3px solid var(--cyan-deep);padding:2px 12px;color:var(--text-dim);margin:8px 0}
+  .msg.bot hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+  .msg.bot a{color:var(--cyan);text-decoration:underline;text-underline-offset:2px}
+  .msg.bot strong{color:var(--text);font-weight:600}
   .ch-foot{flex:0 0 auto;padding:13px 15px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:flex-end}
   .ch-foot textarea{flex:1;resize:none;background:var(--surface-1);border:1px solid var(--line);border-radius:12px;color:var(--text);
     font-family:"Space Grotesk",sans-serif;font-size:var(--fs-body);line-height:1.5;padding:11px 13px;max-height:120px;min-height:44px}
@@ -147,12 +160,14 @@
   .ch-foot .send:hover{box-shadow:0 0 22px -6px rgba(83,231,234,.7),inset 0 0 14px -6px rgba(83,231,234,.5)}
   .ch-foot .send:disabled{opacity:.4;cursor:default;box-shadow:none}
   .ch-note{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);letter-spacing:.06em;color:var(--text-muted);text-align:center;padding:0 15px 11px}
-  .ch-acoes{display:flex;gap:8px;padding:9px 15px 0;flex:0 0 auto}
-  .ch-acoes button{flex:1;font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);font-weight:600;border-radius:var(--r-md);padding:8px;cursor:pointer;border:1px solid var(--line);background:var(--surface-1);color:var(--text-dim);transition:all .2s}
+  .ch-acoes{display:flex;flex-direction:column;gap:6px;padding:0 15px 10px;flex:0 0 auto}
+  .ch-acoes button{font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);font-weight:600;border-radius:var(--r-md);padding:8px;cursor:pointer;border:1px solid var(--line);background:var(--surface-1);color:var(--text-dim);transition:all .2s}
   .ch-acoes button:hover{border-color:var(--line-hud);color:var(--cyan)}
   .ch-acoes button.build{border-color:rgba(224,164,76,.32);color:var(--amber-glow)}
   .ch-acoes button.build:hover{background:rgba(224,164,76,.08);color:var(--amber-glow)}
   .ch-acoes button:disabled{opacity:.5;cursor:default}
+  .ch-hint{font-size:var(--fs-micro);letter-spacing:.03em;color:var(--text-muted);text-align:center;line-height:1.5}
+  .ch-hint b{color:var(--text-dim)}
   #ctoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);z-index:70;background:var(--surface-2);
     border:1px solid var(--line-hud);border-radius:99px;padding:9px 18px;font-size:var(--fs-meta);color:var(--text);opacity:0;transition:all .3s;pointer-events:none}
   #ctoast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -161,7 +176,7 @@
 </head>
 <body>
 <header>
-  <div class="htitulo"><b>Meu time</b><span>Canvas</span></div>
+  <div class="htitulo"><b>Agentes</b><span>o time do seu OS</span></div>
   <div class="htools mono">
     <div class="seg">
       <button id="btn-zout" title="Diminuir zoom">−</button>
@@ -185,12 +200,13 @@
     <button class="ch-x" id="ch-close" aria-label="Fechar">✕</button>
   </div>
   <div class="ch-body" id="ch-body"></div>
-  <div class="ch-acoes">
-    <button class="build" id="ch-build" title="põe o agente pra produzir isso agora (build na sua assinatura)">⚒ põe pra trabalhar</button>
-  </div>
   <div class="ch-foot">
     <textarea id="ch-input" rows="1" placeholder="Pergunta alguma coisa..." aria-label="Mensagem"></textarea>
     <button class="send" id="ch-send" aria-label="Enviar">➤</button>
+  </div>
+  <div class="ch-acoes">
+    <button class="build" id="ch-build" title="põe o agente pra produzir isso agora (build na sua assinatura)">⚒ põe pra trabalhar</button>
+    <span class="ch-hint mono">manda o que você digitou <b>+ esta conversa</b> como contexto pro build · assinatura, custo zero</span>
   </div>
   <div class="ch-note mono">roda na sua assinatura · custo zero de token</div>
 </aside>
@@ -201,6 +217,36 @@
 if(window.self!==window.top)document.documentElement.classList.add('embedded');
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+// markdown enxuto pras respostas do agente (portado do canvas do agentic-os): escapa o
+// HTML ANTES de tudo (XSS-safe) e protege fenced code com placeholder, senão o regex de
+// inline code pareia crases atravessando as cercas e a bolha vira sopa de backticks.
+function mdBot(src){
+  let s=String(src??'');
+  const blocos=[];
+  s=s.replace(/```[\w-]*\n?([\s\S]*?)```/g,(_,code)=>{
+    blocos.push('<pre><code>'+esc(code.replace(/\n$/,''))+'</code></pre>');
+    return '\u0000'+(blocos.length-1)+'\u0000';});
+  s=esc(s);
+  s=s.replace(/^\s{0,3}#{1,6}\s+(.*)$/gm,(_,t)=>'\n\n<h3>'+t.trim()+'</h3>\n\n');
+  s=s.replace(/^\s{0,3}(?:&gt;)\s?(.*)$/gm,'\n\n<blockquote>$1</blockquote>\n\n');
+  s=s.replace(/^\s*([-*_])(?:\s*\1){2,}\s*$/gm,'\n\n<hr>\n\n');
+  s=s.replace(/(?:^|\n)((?:[ \t]*[-*+]\s+.*(?:\n|$))+)/g,(_,bloco)=>{
+    const lis=bloco.trim().split(/\n/).map(l=>'<li>'+l.replace(/^[ \t]*[-*+]\s+/,'')+'</li>').join('');
+    return '\n\n<ul>'+lis+'</ul>\n\n';});
+  s=s.replace(/(?:^|\n)((?:[ \t]*\d+[.)]\s+.*(?:\n|$))+)/g,(_,bloco)=>{
+    const lis=bloco.trim().split(/\n/).map(l=>'<li>'+l.replace(/^[ \t]*\d+[.)]\s+/,'')+'</li>').join('');
+    return '\n\n<ol>'+lis+'</ol>\n\n';});
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+?)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/(^|[^*\w])\*([^*\n]+?)\*(?=[^*\w]|$)/g,'$1<em>$2</em>');
+  s=s.replace(/(^|[^_\w])_([^_\n]+?)_(?=[^_\w]|$)/g,'$1<em>$2</em>');
+  s=s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.split(/\n{2,}/).map(ch=>{ch=ch.trim();
+    if(!ch)return '';
+    return /^<(ul|ol|pre|blockquote|h[1-6]|hr)/.test(ch)?ch:'<p>'+ch.replace(/\n/g,'<br>')+'</p>';
+  }).join('');
+  return s.replace(/\u0000(\d+)\u0000/g,(_,i)=>blocos[+i]);
+}
 const CORES=['#53E7EA','#56C8B0','#7FD9DE','#3FBFC4','#53E7EA','#56C8B0','#7FD9DE','#E0A44C'];
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const cssEsc=s=>window.CSS&&CSS.escape?CSS.escape(String(s)):String(s);
@@ -261,6 +307,24 @@ function render(){
     state.size[nd.id]={w:el.offsetWidth,h:el.offsetHeight};
   });
   desenharEdges(ags);
+  observarNos();
+}
+// As edges dependem da ALTURA medida dos nós. O font-swap da Space Grotesk (~1-3s depois
+// do load), a faixa "Em ação" aparecendo/sumindo e qualquer reflow tardio mudam essa
+// altura DEPOIS do 1º desenho: a linha ficava ancorada na altura velha, terminando no ar
+// (o bug das linhas desalinhadas). O observer re-mede e redesenha na hora.
+let _ro=null,_roRaf=0;
+function observarNos(){
+  if(!window.ResizeObserver)return;
+  if(!_ro)_ro=new ResizeObserver(()=>{
+    if(_roRaf)return;
+    _roRaf=requestAnimationFrame(()=>{_roRaf=0;
+      document.querySelectorAll('#world .node').forEach(el=>{state.size[el.dataset.id]={w:el.offsetWidth,h:el.offsetHeight};});
+      desenharEdges(agentesDe(state.data));
+    });
+  });
+  _ro.disconnect();
+  document.querySelectorAll('#world .node').forEach(el=>_ro.observe(el));
 }
 function desenharEdges(ags){
   const svg=$('#edges');
@@ -299,11 +363,15 @@ function zoomEm(fator,cx,cy){
 }
 function vistaInicial(){
   const st=$('#stage').getBoundingClientRect();
-  let minX=1e9,maxX=-1e9,minY=1e9;
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
   for(const id in state.pos){const p=state.pos[id],s=state.size[id]||{w:214,h:110};
-    if(p.x<minX)minX=p.x; if(p.x+s.w>maxX)maxX=p.x+s.w; if(p.y<minY)minY=p.y;}
-  if(minX>maxX){minX=0;maxX=800;minY=0;}
+    if(p.x<minX)minX=p.x; if(p.x+s.w>maxX)maxX=p.x+s.w;
+    if(p.y<minY)minY=p.y; if(p.y+s.h>maxY)maxY=p.y+s.h;}
+  if(minX>maxX){minX=0;maxX=800;minY=0;maxY=500;}
   state.zoom=st.width<900?0.62:0.82;
+  // se o time tem 2+ fileiras e não cabe na altura, encolhe o zoom pra não cortar a de baixo
+  const alt=(maxY-minY)*state.zoom+120;
+  if(alt>st.height)state.zoom=Math.max(0.3,(st.height-120)/(maxY-minY||1));
   state.panX=st.width/2-((minX+maxX)/2)*state.zoom;
   state.panY=64-minY*state.zoom;
   aplicarTransform();
@@ -372,7 +440,19 @@ async function carregarLayout(){
     if(j&&typeof j==='object')state.pos=Object.assign({},j,state.pos);}catch(e){}
 }
 
-// ---------- chat (não-streaming: o backend do Genesis devolve {ok,resposta}) ----------
+// ---------- chat (STREAMING NDJSON com sessão viva por agente; portado do agentic-os) ----------
+// O histórico sobrevive ao F5 (localStorage): a sessão server-side lembra do papo, e sem
+// o histórico visível a conversa parecia sempre zerada depois de recarregar.
+const CH_CHAVE='genesis:chat-hist';
+function chSalvar(){
+  try{const compacto={};Object.keys(state.chat.hist).forEach(k=>{
+    compacto[k]=state.chat.hist[k].filter(m=>!m.pend).slice(-30).map(m=>({role:m.role,content:String(m.content||'').slice(0,8000)}));});
+    localStorage.setItem(CH_CHAVE,JSON.stringify(compacto));}catch(e){}
+}
+function chRestaurar(){
+  try{const d=JSON.parse(localStorage.getItem(CH_CHAVE)||'null');
+    if(d&&typeof d==='object')Object.keys(d).forEach(k=>{if(Array.isArray(d[k]))state.chat.hist[k]=d[k];});}catch(e){}
+}
 function abrirChat(slug){
   const a=agentesDe(state.data).find(x=>x.slug===slug)||{};
   state.chat.slug=slug;
@@ -391,7 +471,8 @@ function renderChat(){
   if(!h.length){body.innerHTML=`<div class="ch-empty"><span class="em">💬</span>Fala direto com ${esc($('#ch-nome').textContent)}.<br>Ele responde na voz dele, com o contexto do seu OS no bolso.</div>`;return;}
   body.innerHTML=h.map(m=>{
     if(m.role==='agente'&&m.pend&&!m.content)return `<div class="msg bot pend"><span class="th">pensando...</span></div>`;
-    return `<div class="msg ${m.role==='voce'?'user':'bot'}">${esc(m.content)}</div>`;
+    if(m.role==='agente')return `<div class="msg bot${m.pend?' pend':''}">${mdBot(m.content)}</div>`;
+    return `<div class="msg user">${esc(m.content)}</div>`;
   }).join('');
   body.scrollTop=body.scrollHeight;
 }
@@ -399,6 +480,7 @@ async function enviar(){
   const inp=$('#ch-input'), txt=inp.value.trim();
   if(!txt||state.chat.busy)return;
   const slug=state.chat.slug, h=state.chat.hist[slug];
+  const novo=h.length===0;   // 1ª msg da conversa: o backend recicla a sessão do agente
   h.push({role:'voce',content:txt});
   const bot={role:'agente',content:'',pend:true};h.push(bot);
   inp.value='';inp.style.height='auto';state.chat.busy=true;$('#ch-send').disabled=true;renderChat();
@@ -406,25 +488,59 @@ async function enviar(){
     if(DEMO){await new Promise(r=>setTimeout(r,700));bot.content='(modo demo) É aqui que eu responderia ao vivo, na sua assinatura, com o método do meu .agent.md.';}
     else{
       const r=await fetch(`/api/agente/${encodeURIComponent(slug)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({mensagens:h.filter(m=>m!==bot).map(m=>({role:m.role,texto:m.content}))})});
-      const j=await r.json();
-      bot.content=j.ok?j.resposta:('('+(j.erro||'não consegui responder agora')+')');
+        body:JSON.stringify({mensagem:txt, novo,
+          mensagens:h.filter(m=>m!==bot).map(m=>({role:m.role,texto:m.content}))})});
+      if(!r.ok||!r.body)throw new Error('sem stream');
+      const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+      for(;;){
+        const{value,done}=await rd.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});
+        let nl;while((nl=buf.indexOf('\n'))>=0){
+          const linha=buf.slice(0,nl).trim();buf=buf.slice(nl+1);
+          if(!linha)continue;
+          let ev;try{ev=JSON.parse(linha);}catch(e){continue;}
+          if(ev.tipo==='texto'){bot.content+=ev.delta;renderChat();}
+          else if(ev.tipo==='erro'&&!bot.content){bot.content='('+(ev.erro||'não consegui responder agora')+')';}
+        }
+      }
     }
-  }catch(e){bot.content='Não consegui falar com o Claude Code agora. O servidor tá rodando?';}
-  bot.pend=false;state.chat.busy=false;$('#ch-send').disabled=false;renderChat();$('#ch-input').focus();
+  }catch(e){if(!bot.content)bot.content='Não consegui falar com o Claude Code agora. O servidor tá rodando? (se ele reiniciou, recarrega a página)';}
+  bot.pend=false;state.chat.busy=false;$('#ch-send').disabled=false;renderChat();chSalvar();$('#ch-input').focus();
 }
 $('#ch-send').onclick=enviar;
 $('#ch-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar();}});
 $('#ch-input').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px';});
 
-// ações do chat: virar tarefa (backlog) / põe pra trabalhar (build na assinatura)
+// ações do chat: põe pra trabalhar (build na assinatura). Instrução = o que está DIGITADO
+// no campo (sem mandar pro chat) ou, vazio, a última pergunta; a conversa inteira viaja
+// como CONTEXTO (cap 16KB), pro build partir sabendo o que foi combinado.
 function toastC(t){const el=$('#ctoast');el.textContent=t;el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2400);}
 function ultimaPergunta(){const h=state.chat.hist[state.chat.slug]||[];for(let i=h.length-1;i>=0;i--)if(h[i].role==='voce')return h[i].content;return '';}
+function transcritoChat(nome){
+  const h=(state.chat.hist[state.chat.slug]||[]).filter(m=>!m.pend&&m.content);
+  if(!h.length)return '';
+  let t=h.map(m=>'['+(m.role==='voce'?'Dono':nome)+']: '+m.content).join('\n\n');
+  if(t.length>16000)t='[início da conversa omitido]\n\n'+t.slice(-16000);
+  return t;
+}
 $('#ch-build').onclick=async()=>{
-  const slug=state.chat.slug;if(!slug)return;const q=ultimaPergunta();if(!q){toastC('diz o que quer produzir primeiro');return;}
+  const slug=state.chat.slug;if(!slug)return;
+  const inp=$('#ch-input'), nome=$('#ch-nome').textContent;
+  const instrucao=inp.value.trim()||ultimaPergunta();
+  if(!instrucao){toastC('escreve o que quer que ele produza e clica de novo');inp.focus();return;}
   const btn=$('#ch-build');btn.disabled=true;
-  try{await fetch('/api/build/iniciar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tarefa:'Use o agente '+$('#ch-nome').textContent+' ('+slug+') do time. Produza: '+q})});
-    toastC('mandei pro build, na sua assinatura ⚒');}catch(e){toastC('não deu');}
+  const tarefa='Use o agente '+nome+' ('+slug+') do time. Produza: '+instrucao;
+  const contexto=transcritoChat(nome);
+  try{
+    const r=await fetch('/api/build/iniciar',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tarefa,contexto,agente:slug})});
+    const j=await r.json().catch(()=>({}));
+    if(j&&j.erro){toastC(j.erro);}
+    else{
+      if(inp.value.trim()){inp.value='';inp.style.height='auto';}
+      toastC(contexto?'mandei pro build com o contexto da conversa ⚒':'mandei pro build, na sua assinatura ⚒');
+    }
+  }catch(e){toastC('não deu pra disparar o build (servidor fora do ar?)');}
   setTimeout(()=>btn.disabled=false,1600);
 };
 setTimeout(()=>{const d=$('#dica');if(d)d.style.opacity='0';},6000);
@@ -438,16 +554,27 @@ const MOCK={perfil:{nome:'Analista de dados, dashboards Power BI'},ativo:true,
     {slug:'design-system',nome:'Guardião Visual',ic:'🎨',desc:'Mantém todo dashboard visualmente coeso.',live:false},
   ]};
 async function puxar(primeira){
-  let d;
-  try{d=DEMO?MOCK:await (await fetch('/api/painel')).json();}catch(e){d=MOCK;}
+  let d=null;
+  if(DEMO)d=MOCK;
+  if(!d){
+    // servidor fora do ar NÃO vira mock: pintar um time demo como se fosse o do comprador
+    // é dado falso na cara dele. Mostra offline e mantém o que estava na tela.
+    try{d=await (await fetch('/api/painel')).json();}
+    catch(e){$('#dica').innerHTML='<b>servidor fora do ar</b> · recarrega a página quando ele voltar';$('#dica').style.opacity='1';return;}
+  }
   state.data=d;
   render();
   if(primeira)vistaInicial();
 }
 (async function init(){
+  chRestaurar();               // as conversas com os agentes sobrevivem ao F5
   await carregarLayout();
   await puxar(true);
-  setInterval(()=>{if(!state.drag&&!state.pan&&!state.chat.busy)puxar(false);}, DEMO?9000:15000);
+  // a fonte web troca ~1-3s depois e muda a altura dos nós: re-renderiza pra âncora certa
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(state.data)render();});
+  // o poll segue rodando com o chat aberto (só drag/pan pausam): antes, papo longo
+  // congelava o canvas e as edges ficavam velhas por minutos
+  setInterval(()=>{if(!state.drag&&!state.pan)puxar(false);}, DEMO?9000:15000);
 })();
 </script>
 </body>

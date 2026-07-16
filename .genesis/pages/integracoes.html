@@ -52,6 +52,7 @@
   .con .sub{font-size:var(--fs-meta);color:var(--text-dim);line-height:1.5;margin-top:6px}
   .st{font-size:var(--fs-micro);letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;flex-shrink:0;font-weight:500}
   .st.ok{color:var(--live);background:rgba(86,200,176,.1);border:1px solid rgba(86,200,176,.35)}
+  .st.pend{color:var(--amber);background:rgba(224,164,76,.1);border:1px solid rgba(224,164,76,.3)}
   .st.no{color:var(--amber-glow);background:rgba(224,164,76,.1);border:1px solid rgba(224,164,76,.3)}
   .st i{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 7px currentColor}
   .st.ok i{animation:pulse 2.4s infinite}
@@ -79,16 +80,19 @@ const MOCK={conexoes:[
   {chave:'time',ic:'❖',ok:true,nome:'4 agentes · 3 skills',sub:'Seu time montado pelo Genesis, invocável de verdade no Claude Code.'},
 ]};
 function render(d){
-  $('#grid').innerHTML=(d.conexoes||[]).map(c=>`
+  $('#grid').innerHTML=(d.conexoes||[]).map(c=>{
+    // 3 estados: conectado (ok), a conectar (fonte só recomendada na entrevista), faltando
+    const st=c.ok?['ok','conectado']:(c.pendente?['pend','a conectar']:['no','faltando']);
+    return `
     <div class="con"><div class="ic">${esc(c.ic||'•')}</div>
       <div class="c"><div class="nome">${esc(c.nome)}</div><div class="sub">${esc(c.sub)}</div></div>
-      <span class="st ${c.ok?'ok':'no'}"><i></i>${c.ok?'conectado':'faltando'}</span></div>`).join('');
+      <span class="st ${st[0]}"><i></i>${st[1]}</span></div>`;}).join('');
 }
 async function tick(){
   if(DEMO){render(MOCK);return;}
   try{render(await (await fetch('/api/integracoes')).json());}catch(e){$('#grid').innerHTML='<div class="con"><div class="c"><div class="sub">offline</div></div></div>';}
 }
-tick();
+tick();setInterval(tick,6000);
 </script>
 </body>
 </html>

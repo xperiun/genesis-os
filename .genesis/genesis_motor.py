@@ -54,6 +54,15 @@ def _flags_modelo(override=None):
     return ["--model", m] if m else []
 
 
+def _env_assinatura():
+    """Ambiente pros subprocessos `claude`: TUDO do processo MENOS as chaves de API. Com
+    `ANTHROPIC_API_KEY` no env, o Claude Code cobra a API em vez do login OAuth do
+    comprador, e a promessa 'R$ 0, roda na sua assinatura' vira mentira silenciosa numa
+    máquina que tenha a chave setada (caso comum: dev que usa a API pra outra coisa)."""
+    return {k: v for k, v in os.environ.items()
+            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
+
+
 def ultimo_modelo():
     """O modelo do último turno da entrevista (ex: 'claude-opus-4-8[1m]'). '' se ainda não
     rodou nenhum (a 1ª pergunta é fixa e não chama o CLI)."""
@@ -71,6 +80,13 @@ ajuste profundidade e linguagem.
 Tom: direto, caloroso, brasileiro, afiado. Zero corporativês. Perguntas CURTAS, UMA de
 cada vez (nunca empilhe várias numa frase). Nada de "Ótima pergunta"/"Perfeito"/"Vamos lá".
 
+PERGUNTA OBJETIVA COM OPÇÕES (regra de ouro): sempre que a pergunta admitir alternativas
+prováveis, mande junto o campo "opcoes" com 2 a 4 respostas prontas, curtas e CONCRETAS
+(nunca rótulo seco: "planilha no Google Sheets" em vez de "planilha"). A pessoa clica em
+vez de redigir, e a entrevista anda 10x mais rápido. Ela sempre pode digitar outra coisa,
+então as opções não precisam cobrir tudo, só os casos prováveis. Pergunta realmente
+aberta (ex: a dor principal), mande sem "opcoes".
+
 A PRIMEIRA pergunta é curta, aberta e acolhedora, e NÃO assume que a pessoa tem negócio ou
 vende algo (ela pode ser funcionária, autônoma, estudante). Abra simples pelo que ela faz,
 tipo "Pra começar, me conta: o que você faz no dia a dia?". Depois vá fundo pelas respostas.
@@ -85,7 +101,7 @@ a experiência.
   o dossiê NÃO responde. Ex: "Vi que você toca a <b>Acme</b>, consultoria de RH pra indústria.
   O que mais te consome na semana hoje?"
 - Use o dossiê pra pular perguntas e ir MAIS FUNDO, não pra fazer as mesmas. Com dossiê,
-  3 a 5 perguntas bastam: o que falta é a DOR, a META e o DADO que ela tem na mão, que é
+  2 a 4 perguntas bastam: o que falta é a DOR, a META e o DADO que ela tem na mão, que é
   o que documento nenhum conta.
 - Nunca invente o que não está no dossiê. Leu pouco, pergunte o resto normalmente.
 
@@ -95,11 +111,13 @@ vírgula, ponto ou dois pontos. Travessão em prosa é vício de robô e queima 
 NUNCA escreva "canon" nem "canônico" (jargão de produção): use "de referência",
 "principal" ou "padrão". O comprador lê isso e não pode parecer bug.
 
-Faça de 5 a 7 perguntas boas, NUNCA mais que isso. Cubra o ESSENCIAL e pare: o que a pessoa
-faz, a dor principal, o que ela produz, a meta dela, e se já tem algum DADO/fonte na mão. NÃO
-afunde num único assunto: no máximo UMA pergunta de aprofundamento por tema, depois siga pro
-próximo. Entrevista longa cansa e queima a experiência (a pessoa começa a perguntar "por que
-tanta pergunta?"). Assim que tiver o essencial, PARE e MONTE o time, não estique.
+Faça de 3 a 5 perguntas boas (2 a 4 quando tem dossiê), NUNCA mais que isso. A entrevista
+é um CHECKLIST de 4 lacunas, e você só pergunta a lacuna que ainda está VAZIA:
+(1) o que a pessoa faz e produz, (2) a DOR principal, (3) a META, (4) o DADO/fonte na mão.
+O dossiê e as respostas anteriores já preenchem lacunas: preencheu as 4, PARE e MONTE.
+NÃO afunde num único assunto (no máximo UMA pergunta de aprofundamento, e só se a resposta
+foi vaga). Entrevista longa cansa e queima a experiência. Na dúvida entre perguntar mais
+uma ou montar, MONTE.
 
 Os agentes são SOB MEDIDA: você INVENTA os especialistas certos pro caso da pessoa (um
 papel claro, não um nome de celebridade). Ex: "Analista de Varejo", "Narrador de Dados",
@@ -118,9 +136,14 @@ REGRAS DE HONESTIDADE (invioláveis):
 
 FORMATO DE RESPOSTA (responda SEMPRE com UM objeto JSON, e NADA além dele):
 Pra continuar a entrevista:
-{"acao":"perguntar","pergunta":"<sua pergunta curta>","candidato":{"ic":"<emoji>","nome":"<um especialista sob medida que já dá pra intuir>","papel":"<o que ele faz>"}}
-(o "candidato" é opcional: inclua quando já der pra intuir um especialista que serve,
-pra ele "se candidatar" na caixa de entrada. Omita ou null se ainda cedo.)
+{"acao":"perguntar","pergunta":"<sua pergunta curta>","opcoes":["<resposta pronta 1>","<resposta pronta 2>"],"candidato":{"ic":"<emoji>","nome":"<um especialista sob medida que já dá pra intuir>","papel":"<o que ele faz>"}}
+("opcoes" é opcional: 2 a 4 respostas prontas e concretas quando a pergunta admite
+alternativas prováveis; omita em pergunta realmente aberta.
+O "candidato" é opcional: inclua quando já der pra intuir um especialista que serve,
+pra ele "se candidatar" no recrutamento. Omita ou null se ainda cedo.
+REGRA DURA do candidato: cada candidato é um papel NOVO. NUNCA sugira dois candidatos
+pro mesmo papel, mesmo com nome diferente: "Tesoureiro", "Guardião do Caixa" e
+"Escriturário" são UM papel só. Se a lista de candidatos já cobre o papel, mande null.)
 
 Pra montar o time no fim:
 {"acao":"montar","recomendacao":{
@@ -279,7 +302,12 @@ def _normalizar(obj, historico):
     if obj.get("pergunta") and reco is None and obj.get("acao") != "montar":
         cand = obj.get("candidato")
         cand = _scrub(cand) if isinstance(cand, dict) and cand.get("nome") else None
-        return {"done": False, "pergunta": _sem_traves(obj["pergunta"]), "candidato": cand}
+        # opções clicáveis (respostas prontas): valida a forma, limita a 4, scrub em cada uma
+        ops = obj.get("opcoes")
+        ops = [_scrub(str(o))[:80] for o in ops if str(o or "").strip()][:4] \
+            if isinstance(ops, list) else []
+        return {"done": False, "pergunta": _sem_traves(obj["pergunta"]),
+                "opcoes": ops, "candidato": cand}
     # MONTAR: 'acao' explícito OU veio uma recomendação (embrulhada ou solta)
     if obj.get("acao") == "montar" or reco is not None:
         r = _scrub(reco or {})
@@ -347,23 +375,30 @@ def _reco_fallback(historico):
                       "sub": "Conecte uma planilha, um banco ou um objetivo pra o time começar a enxergar."}}
 
 
-def _fallback(historico, forcar=False):
+def _fallback(historico, forcar=False, kb=""):
     """Sem Claude ou erro: conduz uma entrevista base determinística, depois monta pelo que
     a pessoa digitou (ver _reco_fallback). `forcar` = ela apertou "monta agora", então monta
-    na hora, sem completar o roteiro de perguntas."""
+    na hora, sem completar o roteiro de perguntas. `kb` = ela conectou dossiê: pula a
+    pergunta de identificação (perguntar "o que você faz?" pra quem entregou os documentos
+    do negócio é o que o _SYSTEM proíbe; o fallback não pode violar a mesma regra)."""
+    perguntas = _FALLBACK_PERGUNTAS[1:] if (kb or "").strip() else _FALLBACK_PERGUNTAS
     perguntas_feitas = sum(1 for m in historico if m.get("role") == "x")
-    if not forcar and perguntas_feitas < len(_FALLBACK_PERGUNTAS):
-        return {"done": False, "pergunta": _FALLBACK_PERGUNTAS[perguntas_feitas], "candidato": None}
+    if not forcar and perguntas_feitas < len(perguntas):
+        return {"done": False, "pergunta": perguntas[perguntas_feitas], "candidato": None}
     return {"done": True, "recomendacao": _garantir_ds(_reco_fallback(historico))}
 
 
-def _montar_prompt(historico, kb="", forcar=False):
+def _montar_prompt(historico, kb="", forcar=False, candidatos=None):
     """Renderiza a conversa como texto pra um turno headless do Claude Code. `kb` é o dossiê
     que o comprador conectou (contexto/referencia/): com ele, o entrevistador abre JÁ sabendo
     quem é a pessoa, em vez de perguntar o que já está escrito. `forcar` = o comprador apertou
-    "monta agora": o teto vira imediato, ele não fica refém do modelo querer perguntar mais."""
+    "monta agora": o teto vira imediato, ele não fica refém do modelo querer perguntar mais.
+    `candidatos` = nomes já na fila do recrutamento (o front acumula e devolve): sem esta
+    memória, cada turno é um processo novo e o modelo re-sugere o MESMO papel com nome
+    diferente (3 variações de tesoureiro na fila, caso real do founder)."""
+    tem_kb = bool((kb or "").strip())
     linhas = []
-    if (kb or "").strip():
+    if tem_kb:
         linhas += [
             "DOSSIÊ DO COMPRADOR (o material que ELE MESMO conectou: documentos do negócio, "
             "o site dele, o contexto importado do Claude Code dele). Você JÁ LEU isto, então "
@@ -372,6 +407,15 @@ def _montar_prompt(historico, kb="", forcar=False):
             kb.strip()[:14000],
             "",
             "=" * 60,
+            "",
+        ]
+    nomes_cand = [str(c or "").strip() for c in (candidatos or []) if str(c or "").strip()]
+    if nomes_cand:
+        linhas += [
+            "CANDIDATOS JÁ NA FILA do recrutamento (você já sugeriu): "
+            + "; ".join(nomes_cand[:12]) + ". NÃO repita nenhum deles nem crie variação do "
+            "mesmo papel com outro nome. Candidato novo SÓ se for um papel claramente "
+            "DIFERENTE dos listados; senão, mande candidato null.",
             "",
         ]
     linhas += ["Conversa até agora (X = você, o entrevistador; Comprador = quem acabou "
@@ -386,23 +430,27 @@ def _montar_prompt(historico, kb="", forcar=False):
     if not tem:
         linhas.append("(a conversa ainda não começou: faça a PRIMEIRA fala)"
                       + (" Você TEM dossiê: abra mostrando que leu, sem perguntar o que já sabe."
-                         if (kb or "").strip() else " Faça a PRIMEIRA pergunta."))
-    # teto DURO por contagem: o modelo ignora o "5 a 7" do system e estica a entrevista
-    # (a pessoa começa a reclamar). A pressão cresce com o número de perguntas já feitas.
+                         if tem_kb else " Faça a PRIMEIRA pergunta."))
+    # teto DURO por contagem: o modelo ignora o "3 a 5" do system e estica a entrevista
+    # (a pessoa começa a reclamar). Com dossiê o teto é MENOR (o material já preencheu
+    # lacunas), coisa que a versão anterior só dizia em prosa e o modelo ignorava: o
+    # número mecânico é o que ele obedece.
     n_perg = sum(1 for m in historico if m.get("role") == "x")
+    corte = 4 if tem_kb else 5
     fecha = ""
     if forcar:
         fecha = ("ATENÇÃO: o comprador APERTOU o botão de montar o time agora. Ele não quer "
                  "mais responder. PARE de perguntar. Responda AGORA com acao:montar, montando "
                  "o time com o que já sabe (o dossiê e o que ele já respondeu). Fazer outra "
                  "pergunta neste ponto é ERRO e desrespeita o pedido dele.")
-    elif n_perg >= 7:
+    elif n_perg >= corte:
         fecha = (f"ATENÇÃO: você já fez {n_perg} perguntas, é DEMAIS. PARE de perguntar. "
                  "Responda AGORA com acao:montar, montando o time com o que já sabe. "
                  "Fazer outra pergunta neste ponto é ERRO.")
-    elif n_perg >= 5:
-        fecha = (f"Você já tem material suficiente ({n_perg} perguntas). Faça no MÁXIMO "
-                 "mais UMA pergunta e então MONTE. Prefira montar agora.")
+    elif n_perg >= corte - 1:
+        fecha = (f"Você já tem material suficiente ({n_perg} perguntas). Se AINDA falta uma "
+                 "lacuna essencial (dor, meta ou dado na mão), faça no MÁXIMO mais UMA "
+                 "pergunta e então MONTE. Prefira montar agora.")
     linhas += [""]
     if fecha:
         linhas += [fecha, ""]
@@ -413,10 +461,13 @@ def _montar_prompt(historico, kb="", forcar=False):
         "reasoning, phase, campo, tipo):",
         "",
         'Pra continuar a entrevista: {"acao":"perguntar","pergunta":"<pergunta curta, '
-        'UMA frase, sem saudação>","candidato":{"ic":"<emoji>","nome":"<um especialista '
-        'sob medida>","papel":"<o que ele faz>"}}  (candidato pode ser null)',
+        'UMA frase, sem saudação>","opcoes":["<resposta pronta 1>","<resposta pronta 2>"],'
+        '"candidato":{"ic":"<emoji>","nome":"<um especialista '
+        'sob medida>","papel":"<o que ele faz>"}}  (opcoes: 2 a 4 respostas prontas e '
+        "concretas quando a pergunta admite alternativas prováveis, omita em pergunta "
+        "aberta; candidato pode ser null, e NUNCA repete papel que já está na fila)",
         "",
-        'Pra fechar (depois de 5 a 7 perguntas boas, nunca mais): {"acao":"montar","recomendacao":'
+        'Pra fechar (depois de 3 a 5 perguntas boas, nunca mais): {"acao":"montar","recomendacao":'
         '{"entendi":["<3-4 frases do que você entendeu>"],"agentes":[{"slug":"<kebab>",'
         '"nome":"<nome do especialista>","ic":"<emoji>","tag":"Essencial|Recomendado|'
         'Opcional","por":"<por que esse especialista>"}],"skills":[{"slug":"<kebab>",'
@@ -455,7 +506,7 @@ def _claude_cli(prompt, system, tools=None, cwd=None, timeout=180):
         proc = subprocess.run(
             cmd, input=prompt, capture_output=True, text=True,
             encoding="utf-8", errors="ignore", timeout=timeout,
-            cwd=run_cwd)
+            cwd=run_cwd, env=_env_assinatura())
     except Exception:
         return None
     if proc.returncode != 0 or not (proc.stdout or "").strip():
@@ -484,11 +535,12 @@ _ORCAMENTO_PASSO = 170
 _MIN_TENTATIVA = 20   # sobrando menos que isto, nem começa: não dá tempo de um turno voltar
 
 
-def passo(historico, base=None, forcar=False):
+def passo(historico, base=None, forcar=False, candidatos=None):
     """Um passo da entrevista. `historico` = lista [{role:'x'|'voce', texto}]. `base` = raiz
     do repo do comprador, pra ler o dossiê que ele conectou (contexto/referencia/) e o X
     entrevistar JÁ sabendo quem ele é, em vez de perguntar o que já está escrito. `forcar` =
-    ele apertou "monta agora" e não quer mais responder.
+    ele apertou "monta agora" e não quer mais responder. `candidatos` = nomes já na fila do
+    recrutamento (a memória anti-duplicata: cada turno é um processo novo).
 
     Devolve o dict do turno + `modelo`: qual modelo o Claude Code DELE está usando. A cena
     usa isso pra, no reveal, oferecer trocar de modelo só a quem está em Opus (cota separada
@@ -496,12 +548,12 @@ def passo(historico, base=None, forcar=False):
 
     Cérebro: o Claude Code do COMPRADOR (na assinatura dele, R$ 0, via `claude -p`). Se o
     `claude` não estiver disponível, cai numa entrevista determinística, pra nunca travar."""
-    r = _passo(historico, base, forcar)
+    r = _passo(historico, base, forcar, candidatos)
     r["modelo"] = _ULTIMO_MODELO
     return r
 
 
-def _passo(historico, base, forcar):
+def _passo(historico, base, forcar, candidatos=None):
     historico = historico or []
     # dose menor que a da montagem: isto roda a CADA turno, e latência aqui é UX.
     kb = _ler_referencia(base, teto=14000, por_arquivo=5000) if base else ""
@@ -524,7 +576,7 @@ def _passo(historico, base, forcar):
 
     system = _SYSTEM
     # o Claude Code do comprador conduz a entrevista, na assinatura dele
-    prompt = _montar_prompt(historico, kb, forcar)
+    prompt = _montar_prompt(historico, kb, forcar, candidatos)
 
     # ORÇAMENTO, não contagem de tentativas: as tentativas dividem _ORCAMENTO_PASSO entre si,
     # e quem não cabe nele não roda. Uma queda do CLI não pode custar a entrevista (um hiccup
@@ -549,14 +601,22 @@ def _passo(historico, base, forcar):
             obj = _extrair_json(texto or "")
         if obj is not None:
             r = _normalizar(obj, historico)
-            # o comprador pediu pra montar: se o modelo insistir em perguntar, ignora e monta.
-            # O botão é um contrato com ele, não uma sugestão pro modelo.
+            # o comprador pediu pra montar e o modelo insistiu em perguntar: re-pede UMA vez
+            # em modo "só montar" antes de degradar. Jogar fora um modelo que está no ar e
+            # cair no time genérico das trilhas era desperdício (o botão é um contrato com o
+            # comprador, mas o time sob medida ainda é a entrega; degradar é o último recurso).
             if forcar and not r.get("done"):
+                texto2 = _cli(prompt + "\n\nATENÇÃO: responda SOMENTE com acao:montar (a "
+                                       "recomendacao completa). Pergunta agora é ERRO.")
+                obj2 = _extrair_json(texto2 or "")
+                r2 = _normalizar(obj2, historico) if obj2 is not None else None
+                if r2 and r2.get("done"):
+                    return r2
                 return {"done": True, "recomendacao": _garantir_ds(_reco_fallback(historico))}
             return r
 
     # sem o Claude Code disponível: entrevista determinística (nunca trava)
-    return _fallback(historico, forcar)
+    return _fallback(historico, forcar, kb)
 
 
 # --- Instalação: materializa o OS do comprador (pasta mãe + subpastas = um mini OS) ---
@@ -846,7 +906,8 @@ def _gerar_rodada(exe, prompt, modelo=None):
             [exe, "-p"] + _flags_modelo(modelo) + ["--allowedTools", "WebSearch WebFetch",
              "--output-format", "stream-json", "--verbose"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", errors="ignore", cwd=tempfile.gettempdir())
+            text=True, encoding="utf-8", errors="ignore", cwd=tempfile.gettempdir(),
+            env=_env_assinatura())
     except Exception:
         return [], MOTIVO_ERRO
     watchdog = threading.Timer(600, proc.kill)  # teto duro se travar sem produzir saída
@@ -1248,7 +1309,7 @@ def _atividade(base, agentes):
         ts = e.get("ts", 0) or 0
         dt = agora - ts
         quando = "agora" if dt < 60 else (f"{int(dt / 60)}min" if dt < 3600 else f"{int(dt / 3600)}h")
-        eventos.append({"agente": nomes.get(ag, ag), "acao": str(e.get("acao", "")), "quando": quando, "_ts": ts})
+        eventos.append({"agente": nomes.get(ag, ag) or "o time", "acao": str(e.get("acao", "")), "quando": quando, "_ts": ts})
         if dt <= 150 and ag in slugs:
             vivos.add(ag)
     eventos = sorted(eventos, key=lambda x: -x["_ts"])[:10]

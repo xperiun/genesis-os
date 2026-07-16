@@ -154,6 +154,14 @@
   .typing{display:flex;gap:5px;padding:14px 15px} .typing i{width:7px;height:7px;border-radius:50%;background:var(--cyan);animation:tp 1.2s infinite}
   .typing i:nth-child(2){animation-delay:.2s} .typing i:nth-child(3){animation-delay:.4s}
   @keyframes tp{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  /* legenda viva da espera longa: aparece sob os pontinhos após ~8s, rotaciona frases */
+  .typ-sub{padding:0 15px 12px;font-size:var(--fs-micro);letter-spacing:.05em;color:var(--text-muted)}
+  /* opções clicáveis da pergunta (respostas prontas do motor): responder vira 1 clique */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-left:46px;max-width:88%}
+  .chips .chip{font-family:"Space Grotesk",sans-serif;font-size:var(--fs-meta);color:var(--cyan);cursor:pointer;
+    background:rgba(83,231,234,.06);border:1px solid rgba(83,231,234,.32);border-radius:99px;padding:8px 14px;
+    transition:all .2s;text-align:left;line-height:1.35}
+  .chips .chip:hover{background:rgba(83,231,234,.13);border-color:var(--cyan);box-shadow:0 0 14px -7px rgba(83,231,234,.6)}
   .barra{flex-shrink:0;margin:8px 40px 8px;display:flex;gap:11px}
   /* 2 escapes: "recomeçar" à esquerda (sempre), "monta já" à direita (só com 2+ respostas).
      Com o da direita escondido, o space-between deixa o "recomeçar" sozinho à esquerda. */
@@ -367,8 +375,8 @@
   </section>
   <aside class="inbox">
     <div class="inbox-top">
-      <div class="ih"><span class="t"><span class="dot"></span>Caixa de entrada</span><span class="cnt"><b id="inbox-cnt">0</b> candidatos</span></div>
-      <div class="isub">Conforme eu te entendo, a elite se candidata. No fim, você aprova o time.</div>
+      <div class="ih"><span class="t"><span class="dot"></span>Recrutamento de agentes</span><span class="cnt"><b id="inbox-cnt">0</b> candidatos</span></div>
+      <div class="isub">Conforme eu te entendo, especialistas se candidatam ao seu time.</div>
     </div>
     <div class="ilista" id="ilista"><div class="ivazio" id="ivazio">Ninguém ainda. Me responde que a fila começa a formar.</div></div>
   </aside>
@@ -497,7 +505,7 @@ function mostrarFase(nome,idx){
 const CHAVE='genesis:entrevista';
 function salvar(){
   if(DEMO) return;
-  try{ localStorage.setItem(CHAVE,JSON.stringify({historico,recomendacao,t:Date.now()})); }catch(e){}
+  try{ localStorage.setItem(CHAVE,JSON.stringify({historico,recomendacao,candidatos:candidatosVistos,t:Date.now()})); }catch(e){}
 }
 function limpar(){ try{ localStorage.removeItem(CHAVE); }catch(e){} }
 function rascunho(){
@@ -594,14 +602,21 @@ $('#ab-file').addEventListener('change',e=>{abArquivos(e.target.files); e.target
 $('#ab-site-form').addEventListener('submit',async e=>{
   e.preventDefault(); const url=$('#ab-site').value.trim(); if(!url) return;
   keyclick(.09); const bt=$('#ab-site-bt'); bt.disabled=true; bt.textContent='Lendo...';
-  const t=abTemp('lendo '+url+', isso leva alguns segundos...');
+  const t=abTemp('abrindo '+url+'...');
+  // espera VIVA: o servidor roda um claude -p de até 240s lendo o site; texto parado
+  // por minutos lê como travamento. Frases rotativas + cronômetro até resolver.
+  const paraEspera=esperaViva(t.querySelector('.nm'),
+    ['abrindo '+url+'...','lendo a página principal...','seguindo as páginas que importam...',
+     'escrevendo o brief do seu negócio...','organizando o que eu achei...'],true);
   try{
+    // timeout do cliente MAIOR que o do servidor (240s): antes o cliente desistia aos 200s
+    // e mostrava erro enquanto o brief ainda podia ser gravado com sucesso logo depois
     const r=await (await api('/api/contexto/puxar-site',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({url})})).json();
-    t.remove();
+      body:JSON.stringify({url}),timeout:260000})).json();
+    paraEspera(); t.remove();
     if(r.ok){ $('#ab-site').value=''; abListar(); }
     else{ const x=abTemp(r.erro||'não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
-  }catch(err){ t.remove(); const x=abTemp('não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
+  }catch(err){ paraEspera(); t.remove(); const x=abTemp('não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
   bt.disabled=false; bt.textContent='Ler';
 });
 // trazer de outro assistente
@@ -635,7 +650,10 @@ const BONUS_SKILLS=[
 ];
 
 // ---------- estado ----------
-let historico=[], passoN=0, recomendacao=null, inboxN=0;
+let historico=[], passoN=0, recomendacao=null;
+// a fila do recrutamento ({ic,nome,papel}): memória anti-duplicata (os nomes voltam pro
+// motor a cada /passo) e re-render no F5 (vai junto no rascunho)
+let candidatosVistos=[];
 // o modelo que o Claude Code DELE está usando de verdade (vem em toda resposta do /passo).
 // Só serve pra decidir se o reveal oferece trocar antes da montagem.
 let modeloDele='';
@@ -647,33 +665,95 @@ function bolha(quem,texto){
   d.innerHTML=`<div class="av">${quem==='x'?'X':'V'}</div><div class="bolha">${texto}</div>`;
   fluxo.appendChild(d); fluxo.scrollTop=fluxo.scrollHeight;
 }
-function typing(on){ let t=$('#typingmsg');
+// ---------- espera viva: NENHUM momento de espera fica com texto parado ----------
+// Rotaciona frases contextuais a cada ~5s e, passado um tempo, mostra o cronômetro.
+// Devolve a função de parar (limpa o interval). Texto parado > 10s lê como travamento.
+function esperaViva(el,frases,comCrono){
+  let i=0; const t0=Date.now();
+  const pinta=()=>{ if(!el||!el.isConnected)return;
+    const s=Math.floor((Date.now()-t0)/1000);
+    el.textContent=frases[i%frases.length]+((comCrono&&s>=8)?` · ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`:'');
+    i++; };
+  pinta(); const iv=setInterval(pinta,5000);
+  return ()=>clearInterval(iv);
+}
+let _typT=null,_typStop=null;
+function typing(on,frases){ let t=$('#typingmsg');
   if(on){ if(t)return; const d=document.createElement('div'); d.id='typingmsg'; d.className='msg x';
-    d.innerHTML='<div class="av">X</div><div class="bolha"><div class="typing"><i></i><i></i><i></i></div></div>'; fluxo.appendChild(d); fluxo.scrollTop=fluxo.scrollHeight; keyburst();
-  } else if(t){ t.remove(); } }
+    d.innerHTML='<div class="av">X</div><div class="bolha"><div class="typing"><i></i><i></i><i></i></div><div class="typ-sub mono" hidden></div></div>'; fluxo.appendChild(d); fluxo.scrollTop=fluxo.scrollHeight; keyburst();
+    // após 8s de pontinhos, a legenda viva assume: o turno roda um claude -p e pode levar
+    // 1-2 min (pior na 1ª fala com dossiê); sem isto parece que travou
+    clearTimeout(_typT);
+    _typT=setTimeout(()=>{ const sub=d.querySelector('.typ-sub'); if(!sub)return; sub.hidden=false;
+      _typStop=esperaViva(sub,frases||['pensando na próxima pergunta...','organizando o que você me contou...','ainda aqui, só formulando...'],true);
+      fluxo.scrollTop=fluxo.scrollHeight; },8000);
+  } else if(t){ clearTimeout(_typT); if(_typStop){_typStop();_typStop=null;} t.remove(); } }
+// dedup do recrutamento: o motor manda a lista dos que já estão na fila de volta pro
+// modelo (a memória), e aqui fica o cinto: slug igual OU sobreposição forte de tokens
+// ("Guardião do Caixa LUKK" vs "Guardião do Caixa") nunca entram duas vezes.
+const slugCand=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const tokensCand=s=>new Set(slugCand(s).split('-').filter(t=>t.length>2));
+function candidatoDup(nome){
+  const nv=tokensCand(nome), sv=slugCand(nome);
+  return candidatosVistos.some(c=>{
+    if(slugCand(c.nome)===sv)return true;
+    const t=tokensCand(c.nome); let inter=0; nv.forEach(x=>{if(t.has(x))inter++;});
+    return inter/(Math.min(nv.size,t.size)||1)>=0.6;
+  });
+}
 function candidato(c){
-  if(!c)return; keyclick(.07); $('#ivazio')?.remove(); inboxN++; $('#inbox-cnt').textContent=inboxN;
+  if(!c||!c.nome||candidatoDup(c.nome))return;
+  candidatosVistos.push({ic:c.ic||'•',nome:c.nome,papel:c.papel||''});
+  keyclick(.07); $('#ivazio')?.remove(); $('#inbox-cnt').textContent=candidatosVistos.length;
   const d=document.createElement('div'); d.className='rec';
   d.innerHTML=`<div class="rt"><div class="ic">${esc(c.ic||'•')}</div><div style="flex:1"><div class="rn">${esc(c.nome)}</div><div class="rm">${esc(c.papel||'')} · candidato</div></div><div class="rs">na fila</div></div>`;
   $('#ilista').prepend(d);
+  salvar();  // a fila sobrevive ao F5 junto com a conversa
+}
+// opções clicáveis (respostas prontas que o motor manda junto da pergunta)
+function limparChips(){ document.querySelectorAll('.chips').forEach(e=>e.remove()); }
+function chips(ops){
+  limparChips(); if(!ops||!ops.length)return;
+  const d=document.createElement('div'); d.className='chips';
+  d.innerHTML=ops.map(o=>`<button type="button" class="chip">${esc(o)}</button>`).join('');
+  d.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
+    if($('#resp').disabled)return;
+    $('#resp').value=b.textContent; $('#form-resp').requestSubmit();
+  }));
+  fluxo.appendChild(d); fluxo.scrollTop=fluxo.scrollHeight;
 }
 async function perguntar(montar_agora){  // devolve {done, pergunta?, recomendacao?}
   try{
     const r=await api('/api/genesis/passo',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({historico, montar_agora:!!montar_agora})});
+      body:JSON.stringify({historico, montar_agora:!!montar_agora,
+        candidatos:candidatosVistos.map(c=>c.nome)})});
     // 403 (token velho, servidor reiniciado) volta {erro} sem pergunta: sem esta checagem
     // a bolha do X sai VAZIA e a entrevista trava muda. Trata como queda, com aviso visível.
-    if(!r.ok){ return {done:false, pergunta:'Perdi o fio aqui. Atualiza a página (F5) que a gente recomeça de onde você parou.'}; }
+    // erro_ui: a bolha aparece mas NÃO entra no historico (senão conta como pergunta no teto
+    // do motor e o modelo passa a "ver" o X dizendo que perdeu a conexão).
+    if(!r.ok){ return {done:false, erro_ui:true, pergunta:'Perdi o fio aqui. Atualiza a página (F5) que a gente recomeça de onde você parou.'}; }
     const j=await r.json();
-    if(!j || (!j.done && !j.pergunta)){ return {done:false, pergunta:'Me perdi na última. Tenta responder de novo?'}; }
+    if(!j || (!j.done && !j.pergunta)){ return {done:false, erro_ui:true, pergunta:'Me perdi na última. Tenta responder de novo?'}; }
     return j;
-  }catch(e){ return {done:false, pergunta:'Perdi a conexão com o meu cérebro aqui. Tenta responder de novo?'}; }
+  }catch(e){ return {done:false, erro_ui:true, pergunta:'Perdi a conexão com o meu cérebro aqui. Tenta responder de novo?'}; }
 }
-// beat de suspense entre a última resposta e o diagnóstico: overlay pulsando ~3s
-function montandoOverlay(){
+// O overlay "montando" agora é um par ligar/desligar com frases VIVAS: no "monta já" ele
+// liga NO CLIQUE e segura durante a geração inteira (que leva até minutos), em vez de
+// piscar 2,4s decorativos DEPOIS que a resposta já chegou (a espera acontecia no lugar
+// errado: a pessoa via só os pontinhos do chat e achava que travou).
+let _movStop=null;
+const FRASES_MONTAR=['relendo tudo que você me contou...','definindo os especialistas do seu time...',
+  'escolhendo as skills que valem criar...','amarrando cada escolha no seu caso...','fechando o diagnóstico...'];
+function montandoOn(frases){
+  const el=$('#montando'); el._t0=Date.now(); el.classList.add('on'); keyburst(12,55,.04);
+  if(_movStop)_movStop();
+  _movStop=esperaViva(el.querySelector('.mtxt'),frases||FRASES_MONTAR,true);
+}
+function montandoOff(minMs){
   return new Promise(res=>{
-    const el=$('#montando'); el.classList.add('on'); keyburst(12,55,.04);
-    setTimeout(()=>{ el.classList.remove('on'); res(); }, DEMO?3000:2400);
+    const el=$('#montando');
+    const falta=Math.max(0,(minMs||0)-(Date.now()-(el._t0||0)));  // duração mínima anti-flash
+    setTimeout(()=>{ if(_movStop){_movStop();_movStop=null;} el.classList.remove('on'); res(); },falta);
   });
 }
 function travar(on){
@@ -684,13 +764,29 @@ function travar(on){
   $('#btn-montar-ja').hidden = historico.filter(m=>m.role==='voce').length < 2;
 }
 async function turnoX(inicial,montar_agora){
-  travar(true); typing(true);
+  travar(true); limparChips();
+  // no "monta já", a tela de montagem aparece JÁ: é o turno mais caro da entrevista
+  // (o modelo gera a recomendação completa) e a espera tem que acontecer nela
+  if(montar_agora) montandoOn();
+  else typing(true, inicial?['lendo o material que você conectou...','cruzando com o que eu preciso saber...','preparando a primeira pergunta...']:undefined);
   const res=await perguntar(montar_agora);
   if(res.modelo) modeloDele=res.modelo;   // de graça, vem em toda resposta do /passo
   await new Promise(r=>setTimeout(r, DEMO?700:100));
   typing(false);
-  if(res.done){ recomendacao=res.recomendacao; await montandoOverlay(); irReveal(); return; }
+  if(res.erro_ui){
+    // queda de conexão/servidor: avisa no chat SEM contaminar o historico (senão conta
+    // como pergunta no teto do motor e vai parar no prompt do próximo turno)
+    if(montar_agora) await montandoOff(0);
+    bolha('x',rich(res.pergunta)); travar(false); $('#resp').focus(); return;
+  }
+  if(res.done){
+    recomendacao=res.recomendacao;
+    if(!montar_agora) montandoOn();          // beat de suspense do caminho normal
+    await montandoOff(DEMO?3000:2400);       // mínimo anti-flash; no monta-já só completa o que faltar
+    irReveal(); return;
+  }
   bolha('x',rich(res.pergunta)); keyclick(.06); historico.push({role:'x',texto:res.pergunta});
+  if(res.opcoes&&res.opcoes.length) chips(res.opcoes);
   if(res.candidato) setTimeout(()=>candidato(res.candidato),500);
   salvar(); travar(false); $('#resp').focus();
 }
@@ -889,6 +985,7 @@ $('#btn-entrar').addEventListener('click',()=>{ keyclick(.1);
     historico=d.historico||[]; recomendacao=d.recomendacao||null;
     passoN=historico.filter(m=>m.role==='voce').length;
     historico.forEach(m=>bolha(m.role==='x'?'x':'eu', m.role==='x'?rich(m.texto):esc(m.texto)));
+    (d.candidatos||[]).forEach(c=>candidato(c));   // a fila do recrutamento volta junto
     if(recomendacao){ irReveal(); return; }
     mostrarFase('entrevista',1); travar(false); $('#resp').focus();
     return;

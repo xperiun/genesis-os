@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root{
     --void:#0A0D12; --surface-1:#10151C; --surface-2:#161C25; --surface-3:#1D2530;
@@ -37,7 +38,12 @@
   header{display:flex;align-items:center;justify-content:space-between;padding:15px 24px;border-bottom:1px solid var(--line);flex:0 0 auto}
   header h1{font-size:var(--fs-title);font-weight:600}header h1 span{font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-muted);display:block;margin-top:3px;text-transform:uppercase}
   #cnt{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-meta);color:var(--text-muted)}
-  .wrap{flex:1 1 auto;display:grid;grid-template-columns:288px 1fr;overflow:hidden}
+  .wrap{position:relative;flex:1 1 auto;display:grid;grid-template-columns:var(--fw,288px) 1fr;overflow:hidden}
+  /* alça de redimensionar a lista (arrasta pro lado; 2x-clique reseta) */
+  .rez{position:absolute;top:0;left:var(--fw,288px);transform:translateX(-3px);width:7px;height:100%;cursor:col-resize;z-index:6}
+  .rez::after{content:"";position:absolute;top:0;bottom:0;left:3px;width:1px;background:transparent;transition:background .15s}
+  .rez:hover::after,.rez.drag::after{background:var(--cyan)}
+  body.rezing{cursor:col-resize;user-select:none}
   /* lista */
   .lista{border-right:1px solid var(--line);overflow-y:auto;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
   .puxar{position:relative;background:linear-gradient(180deg,rgba(83,231,234,.05),rgba(16,21,28,.72));border:1px solid var(--line-hud);border-radius:var(--r-lg);padding:13px;margin-bottom:12px}
@@ -52,15 +58,25 @@
   .puxar .st{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--text-muted);margin-top:8px;line-height:1.4;min-height:0}
   .puxar .st.ok{color:var(--live)}.puxar .st.err{color:var(--error)}
   .grupo{font-size:var(--fs-micro);letter-spacing:.18em;color:var(--text-muted);text-transform:uppercase;margin:12px 8px 4px}
-  .fpasta{font-size:var(--fs-meta);color:var(--text-muted);padding:7px 8px;border-radius:var(--r-md);cursor:pointer;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fpasta:hover{color:var(--text);background:var(--surface-2)}
-  .fitem{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--r-md);border:1px solid transparent;cursor:pointer;transition:all .2s;position:relative}
-  .fitem:hover{background:var(--surface-2)}
-  .fitem.sel{background:linear-gradient(90deg,rgba(83,231,234,.08),transparent 70%)}
-  .fitem.sel::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;border-radius:0 2px 2px 0;background:var(--cyan);box-shadow:0 0 10px -1px rgba(83,231,234,.75)}
-  .fitem .fn{flex:1;min-width:0;font-size:var(--fs-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fitem .fk{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--text-muted);flex-shrink:0}
-  .fitem .lock{font-size:var(--fs-meta);color:var(--text-muted);opacity:.6}
+  /* árvore: pastas colapsáveis com trilho de indentação (port do painel do founder) */
+  .f{display:flex;align-items:center;gap:9px;padding:7px 10px 7px 33px;border-radius:var(--r-md);border:1px solid transparent;cursor:pointer;transition:all .2s;position:relative}
+  .f:hover{background:var(--surface-2)}
+  .f.sel{background:linear-gradient(90deg,rgba(83,231,234,.08),transparent 70%);border-color:var(--line-hud)}
+  .f.sel .nm{color:var(--cyan)}
+  .f .ico{font-size:var(--fs-body);opacity:.55;flex-shrink:0}
+  .f .nm{flex:1;min-width:0;font-size:var(--fs-meta);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .f .kb{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--text-muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+  .f .lock{font-size:var(--fs-meta);color:var(--text-muted);opacity:.7}
+  .fold{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-md);cursor:pointer;color:var(--text);user-select:none}
+  .fold:hover{background:var(--surface-2)}
+  .fold .chev{display:flex;align-items:center;justify-content:center;width:15px;height:15px;flex-shrink:0;color:var(--text-muted);transition:transform .18s ease,color .18s}
+  .fold:hover .chev{color:var(--text)}
+  .fold.open>.chev{transform:rotate(90deg);color:var(--cyan)}
+  .fold .ico{font-size:var(--fs-body);flex-shrink:0}
+  .fold .nm{font-size:var(--fs-meta);font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* trilho vertical que liga os filhos ao pai (o look de árvore de verdade) */
+  .kids{margin-left:18px;border-left:1px solid var(--line);padding-left:5px}
+  .kids:hover{border-left-color:rgba(147,160,173,.32)}
   /* painel do arquivo */
   .painel{overflow:hidden;display:flex;flex-direction:column}
   .fhead{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line);flex:0 0 auto}
@@ -72,7 +88,7 @@
     background:var(--surface-2);color:var(--text);box-shadow:0 0 18px -8px rgba(83,231,234,.5),inset 0 0 12px -8px rgba(83,231,234,.4);transition:all .2s}
   .salvar:hover{box-shadow:0 0 22px -6px rgba(83,231,234,.7),inset 0 0 14px -6px rgba(83,231,234,.5)}
   .salvar:disabled{opacity:.5;cursor:default;box-shadow:none}
-  .salvo{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--live);opacity:0;transition:opacity .3s}.salvo.on{opacity:1}
+  .salvo{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-micro);color:var(--live);opacity:0;transition:opacity .3s}.salvo.on{opacity:1}.salvo.err{color:var(--error)}
   .fbody{flex:1 1 auto;overflow-y:auto;padding:24px 30px}
   .fvazio{margin:auto;text-align:center;color:var(--text-muted);font-size:var(--fs-body);line-height:1.7;padding-top:16vh}
   .fvazio .em{font-size:32px;display:block;margin-bottom:12px;opacity:.6;color:var(--cyan-deep)}
@@ -87,8 +103,14 @@
   .md p{margin:10px 0}.md ul{margin:10px 0 10px 22px}.md li{margin:5px 0}
   .md code{font-family:"IBM Plex Mono",monospace;font-size:var(--fs-meta);background:rgba(83,231,234,.1);border:1px solid rgba(83,231,234,.2);border-radius:var(--r-sm);padding:1px 6px;color:var(--cyan)}
   .md hr{border:0;border-top:1px solid var(--line);margin:20px 0}
-  .md b{color:var(--text)}
-  @media(max-width:820px){.wrap{grid-template-columns:1fr}.lista{display:none}}
+  .md b,.md strong{color:var(--text)}
+  .md pre{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:var(--fs-meta);line-height:1.6}
+  .md pre code{background:none;border:none;padding:0;color:var(--text-dim)}
+  .md table{border-collapse:collapse;display:block;overflow-x:auto;margin:12px 0}
+  .md th,.md td{border:1px solid var(--line);padding:6px 10px;font-size:var(--fs-meta)}
+  .md blockquote{border-left:3px solid var(--cyan-deep);padding:4px 14px;color:var(--text-dim);margin:10px 0}
+  .md ol{margin:10px 0 10px 22px}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr}.lista{display:none}.rez{display:none}}
 </style>
 </head>
 <body>
@@ -104,6 +126,7 @@
     </div>
     <div id="arquivos"></div>
   </div>
+  <div class="rez" id="rez" title="arraste pra alargar (clique duplo reseta)"></div>
   <div class="painel">
     <div class="fhead" id="fhead" style="display:none">
       <div class="fnome" id="fnome">—</div>
@@ -118,7 +141,7 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-let arquivos=[], atual=null, modo='preview';
+let arquivos=[], atual=null, modo='preview', sujo=false;
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_CTX=[
   {rel:'CLAUDE.md',nome:'CLAUDE.md',pasta:'',kb:0.2,editavel:true},
@@ -133,23 +156,58 @@ const MOCK_CONT={
   'contexto/referencia/negocio.md':'# O negócio\n\nRede de farmácias, 42 lojas no interior de SP. Faturamento anual ~R$ 180 milhões. O dashboard financeiro cobra margem por loja, ruptura de estoque e ticket médio.\n',
 };
 
-function mdToHtml(md){
-  let h=esc(md);
-  h=h.replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>');
-  h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  h=h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*]+)\*/g,'$1<i>$2</i>');
-  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
-  h=h.replace(/^\s*[-*] (.*)$/gm,'<li>$1</li>');
-  h=h.replace(/(<li>[\s\S]*?<\/li>)(?![\s\S]*<li>)/,m=>m); // no-op guard
-  h=h.replace(/(?:<li>.*<\/li>\s*)+/g,m=>'<ul>'+m+'</ul>');
-  h=h.replace(/^---+$/gm,'<hr>');
-  return h.split(/\n{2,}/).map(b=>{b=b.trim();return /^<(h\d|ul|hr|p|pre|blockquote)/.test(b)?b:(b?'<p>'+b.replace(/\n/g,'<br>')+'</p>':'');}).join('\n');
+// Markdown: online usa o marked (GFM completo: fence, tabela, lista aninhada);
+// offline cai no mdBotLocal, que protege os fences ANTES de qualquer regex
+// (era o bug: a crase da cerca pareava com crase inline e fatiava o arquivo).
+function render(md){
+  if(window.marked){try{return sanear(marked.parse(String(md??'')));}catch(e){}}
+  return mdBotLocal(md);
+}
+// saneamento leve do HTML do marked: derruba tag perigosa, handler inline e URL javascript:
+function sanear(html){
+  const t=document.createElement('template'); t.innerHTML=html;
+  t.content.querySelectorAll('script,iframe,object,embed').forEach(el=>el.remove());
+  t.content.querySelectorAll('*').forEach(el=>{
+    for(const at of [...el.attributes]){
+      const n=at.name.toLowerCase();
+      if(n.startsWith('on'))el.removeAttribute(at.name);
+      else if((n==='href'||n==='src'||n==='xlink:href')&&/^\s*javascript:/i.test(at.value))el.removeAttribute(at.name);
+    }
+  });
+  return t.innerHTML;
+}
+function mdBotLocal(src){
+  let s=String(src??'').replace(/\r\n?/g,'\n');
+  const blocos=[];  // fenced code fora do caminho das regex, restaura no fim
+  s=s.replace(/```[\w-]*\n?([\s\S]*?)```/g,(_,code)=>{
+    blocos.push('<pre><code>'+esc(code.replace(/\n$/,''))+'</code></pre>');
+    return '\u0000'+(blocos.length-1)+'\u0000';});
+  s=esc(s);
+  s=s.replace(/^\s{0,3}(#{1,6})\s+(.*)$/gm,(_,cerq,tit)=>{const n=Math.min(cerq.length,3);return '\n\n<h'+n+'>'+tit.trim()+'</h'+n+'>\n\n';});
+  s=s.replace(/^\s{0,3}(?:&gt;)\s?(.*)$/gm,'\n\n<blockquote>$1</blockquote>\n\n');
+  s=s.replace(/^\s*([-*_])(?:\s*\1){2,}\s*$/gm,'\n\n<hr>\n\n');
+  s=s.replace(/(?:^|\n)((?:[ \t]*[-*+]\s+.*(?:\n|$))+)/g,(_,bloco)=>{
+    const lis=bloco.trim().split(/\n/).map(l=>'<li>'+l.replace(/^[ \t]*[-*+]\s+/,'')+'</li>').join('');
+    return '\n\n<ul>'+lis+'</ul>\n\n';});
+  s=s.replace(/(?:^|\n)((?:[ \t]*\d+[.)]\s+.*(?:\n|$))+)/g,(_,bloco)=>{
+    const lis=bloco.trim().split(/\n/).map(l=>'<li>'+l.replace(/^[ \t]*\d+[.)]\s+/,'')+'</li>').join('');
+    return '\n\n<ol>'+lis+'</ol>\n\n';});
+  s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+?)\*\*/g,'<b>$1</b>');
+  s=s.replace(/(^|[^*\w])\*([^*\n]+?)\*(?=[^*\w]|$)/g,'$1<i>$2</i>');
+  s=s.replace(/(^|[^_\w])_([^_\n]+?)_(?=[^_\w]|$)/g,'$1<i>$2</i>');
+  s=s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.split(/\n{2,}/).map(b=>{b=b.trim();
+    if(!b)return '';
+    return /^<(ul|ol|pre|blockquote|h[1-6]|hr)|^\u0000/.test(b)?b:'<p>'+b.replace(/\n/g,'<br>')+'</p>';
+  }).join('\n');
+  return s.replace(/\u0000(\d+)\u0000/g,(_,i)=>blocos[+i]);
 }
 
 // árvore: CLAUDE.md raiz no topo, pastas auto-expandidas (só _archive colapsa)
 function construirArvore(arqs){
   const raiz={pastas:{},arquivos:[]};
-  arqs.forEach(a=>{const partes=a.rel.split('/');let no=raiz;
+  arqs.slice().sort((a,b)=>a.rel.localeCompare(b.rel)).forEach(a=>{const partes=a.rel.split('/');let no=raiz;
     for(let i=0;i<partes.length-1;i++){const p=partes[i];no.pastas[p]=no.pastas[p]||{pastas:{},arquivos:[]};no=no.pastas[p];}
     no.arquivos.push(a);});
   return raiz;
@@ -157,16 +215,24 @@ function construirArvore(arqs){
 const abertos=new Set(); let treeInit=false;
 function autoAbrir(no,caminho){Object.keys(no.pastas).forEach(nome=>{const c=caminho?caminho+'/'+nome:nome;
   if(nome!=='_archive')abertos.add(c);autoAbrir(no.pastas[nome],c);});}
-function renderNo(no,caminho,nivel){
-  let h=''; const pad=nivel*13+9;
-  no.arquivos.slice().sort((a,b)=>{
+const CHEV='<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+function renderFiles(files,nivel){
+  return files.slice().sort((a,b)=>{
     if(nivel===0){if(a.nome==='CLAUDE.md')return -1;if(b.nome==='CLAUDE.md')return 1;}
     return a.nome.localeCompare(b.nome);
-  }).forEach(a=>{h+=`<div class="fitem ${atual&&atual.rel===a.rel?'sel':''}" data-rel="${esc(a.rel)}" style="padding-left:${pad}px">
-    <span class="fn">${esc(a.nome)}</span>${a.editavel?'':'<span class="lock" title="só leitura">🔒</span>'}<span class="fk">${a.kb}kb</span></div>`;});
-  Object.keys(no.pastas).sort().forEach(nome=>{const c=caminho?caminho+'/'+nome:nome,ab=abertos.has(c);
-    h+=`<div class="fpasta" data-p="${esc(c)}" style="padding-left:${pad}px">${ab?'▾':'▸'} ${esc(nome)}/</div>`;
-    if(ab)h+=renderNo(no.pastas[nome],c,nivel+1);});
+  }).map(a=>`<div class="f ${atual&&atual.rel===a.rel?'sel':''}" data-rel="${esc(a.rel)}"><span class="ico">${a.editavel?'📝':'📄'}</span><span class="nm">${esc(a.nome)}</span>${a.editavel?'':'<span class="lock" title="só leitura">🔒</span>'}<span class="kb">${esc(a.kb)}kb</span></div>`).join('');
+}
+function renderNo(no,caminho,nivel){
+  let h='';
+  // na raiz, os arquivos (o CLAUDE.md mestre) vêm ANTES das pastas: mapa no topo
+  if(nivel===0)h+=renderFiles(no.arquivos,0);
+  Object.keys(no.pastas).sort().forEach(nome=>{
+    const c=caminho?caminho+'/'+nome:nome,ab=abertos.has(c);
+    h+=`<div class="fold ${ab?'open':''}" data-p="${esc(c)}"><span class="chev">${CHEV}</span><span class="ico">${ab?'📂':'📁'}</span><span class="nm">${esc(nome)}</span></div>`;
+    // filhos num container próprio: é ele que desenha o trilho vertical (.kids)
+    if(ab)h+=`<div class="kids">${renderNo(no.pastas[nome],c,nivel+1)}</div>`;
+  });
+  if(nivel!==0)h+=renderFiles(no.arquivos,nivel);
   return h;
 }
 function renderLista(){
@@ -174,44 +240,79 @@ function renderLista(){
   const raiz=construirArvore(arquivos);
   if(!treeInit){autoAbrir(raiz,'');treeInit=true;}
   $('#arquivos').innerHTML=renderNo(raiz,'',0);
-  document.querySelectorAll('.fitem').forEach(el=>el.onclick=()=>abrir(el.dataset.rel));
-  document.querySelectorAll('.fpasta').forEach(el=>el.onclick=()=>{const p=el.dataset.p;abertos.has(p)?abertos.delete(p):abertos.add(p);renderLista();});
 }
+// delegação de clique: um listener só pra árvore inteira (pasta abre/fecha, arquivo abre)
+$('#arquivos').addEventListener('click',e=>{
+  const fold=e.target.closest('.fold');
+  if(fold){const p=fold.dataset.p;abertos.has(p)?abertos.delete(p):abertos.add(p);renderLista();return;}
+  const f=e.target.closest('.f');if(f)abrir(f.dataset.rel);
+});
 async function abrir(rel){
-  const a=arquivos.find(x=>x.rel===rel); if(!a)return; atual=a;
+  const a=arquivos.find(x=>x.rel===rel); if(!a)return;
+  if(sujo&&!confirm('Descartar alterações não salvas?'))return;
+  sujo=false; atual=a;
   renderLista();
-  $('#fhead').style.display='flex'; $('#fnome').textContent=a.nome;
-  if(DEMO){atual._c=MOCK_CONT[rel]||'(conteúdo de demo)';setModo(a.editavel?'preview':'edit-lock');return;}
+  $('#fhead').style.display='flex'; $('#fnome').textContent=a.nome+(a.editavel?'':' 🔒');
+  if(DEMO){atual._c=MOCK_CONT[rel]||'(conteúdo de demo)';setModo('preview');return;}
   try{const r=await fetch('/api/contexto/'+a.rel.split('/').map(encodeURIComponent).join('/'));const j=await r.json();atual._c=j.conteudo||'';}
   catch(e){atual._c='(não consegui ler)';}
-  // .md abre em preview; não-editável (csv/txt) sempre preview
-  setModo(a.editavel?'preview':'edit-lock');
+  // tudo abre em preview; não-editável fica só em preview (sem Editar/Salvar)
+  setModo('preview');
 }
 function setModo(m){
-  modo=m;
-  const ed=a=>a, edit=(m==='edit'), lock=(m==='edit-lock');
+  // se estava editando o MESMO arquivo, preserva o texto digitado antes de trocar a view
+  const edAnt=$('#ed'); if(edAnt&&atual&&edAnt.dataset.rel===atual.rel)atual._c=edAnt.value;
+  const edit=(m==='edit'&&!!atual&&!!atual.editavel);
+  modo=edit?'edit':'preview';
   $('#toggle').style.display=atual&&atual.editavel?'flex':'none';
   $('#salvar').style.display=edit?'inline-block':'none';
-  document.querySelectorAll('#toggle button').forEach(b=>b.classList.toggle('on',b.dataset.m===(edit?'edit':'preview')));
+  document.querySelectorAll('#toggle button').forEach(b=>b.classList.toggle('on',b.dataset.m===modo));
   const body=$('#fbody');
   if(edit){
     body.innerHTML=`<textarea id="ed" spellcheck="false"></textarea>`;
-    $('#ed').value=atual._c||'';
+    const ed=$('#ed'); ed.value=atual._c||''; ed.dataset.rel=atual.rel;
+    ed.addEventListener('input',()=>{sujo=true;});
   }else{
-    // preview (md) ou texto cru (csv/txt/lock)
-    if(atual&&/\.(md)$/i.test(atual.rel))body.innerHTML=`<div class="md">${mdToHtml((atual._c||'').replace(/^---\s*\n[\s\S]*?\n---\s*\n/,''))}</div>`;
+    // preview: .md renderizado; o resto (csv/txt) em texto cru
+    if(atual&&/\.md$/i.test(atual.rel))body.innerHTML=`<div class="md">${render((atual._c||'').replace(/^---\s*\n[\s\S]*?\n---\s*\n/,''))}</div>`;
     else body.innerHTML=`<div class="md"><pre style="white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:var(--fs-meta);line-height:1.6">${esc(atual._c||'')}</pre></div>`;
   }
 }
 document.querySelectorAll('#toggle button').forEach(b=>b.onclick=()=>setModo(b.dataset.m));
+function salvoOk(){const s=$('#salvo');s.textContent='salvo ✓';s.classList.remove('err');s.classList.add('on');
+  clearTimeout(s._t);s._t=setTimeout(()=>s.classList.remove('on'),1600);}
+function salvoErr(msg){const s=$('#salvo');s.textContent=msg;s.classList.add('err','on');
+  clearTimeout(s._t);s._t=setTimeout(()=>{s.classList.remove('on','err');s.textContent='salvo ✓';},5000);}
 $('#salvar').onclick=async()=>{
-  if(!atual)return; const btn=$('#salvar'); btn.disabled=true;
+  if(!atual||!atual.editavel||!$('#ed'))return; const btn=$('#salvar'); btn.disabled=true;
   atual._c=$('#ed').value;
-  try{await fetch('/api/contexto/'+atual.rel.split('/').map(encodeURIComponent).join('/'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({conteudo:atual._c})});
-    const s=$('#salvo');s.classList.add('on');clearTimeout(s._t);s._t=setTimeout(()=>s.classList.remove('on'),1600);}
-  catch(e){}
+  if(DEMO){sujo=false;salvoOk();setTimeout(()=>btn.disabled=false,300);return;}
+  try{
+    const r=await fetch('/api/contexto/'+atual.rel.split('/').map(encodeURIComponent).join('/'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({conteudo:atual._c})});
+    let j=null; try{j=await r.json();}catch(_){}
+    if(r.ok&&(!j||j.ok!==false)){sujo=false;salvoOk();}
+    else salvoErr((j&&j.erro)?('não salvou: '+j.erro):'não salvou, recarregue a página');
+  }catch(e){salvoErr('não salvou, recarregue a página');}
   setTimeout(()=>btn.disabled=false,300);
 };
+// Ctrl/Cmd+S salva no modo edição
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'&&modo==='edit'&&atual&&atual.editavel){e.preventDefault();$('#salvar').click();}
+});
+// redimensionar a lista (largura persistida em localStorage; 2x-clique reseta)
+(function(){
+  const cols=document.querySelector('.wrap'), rez=$('#rez');
+  const setFW=w=>{const fw=Math.max(220,Math.min(Math.round(w),640));cols.style.setProperty('--fw',fw+'px');localStorage.setItem('ctx_fw',fw);};
+  setFW(parseInt(localStorage.getItem('ctx_fw')||'288',10));
+  rez.addEventListener('pointerdown',e=>{
+    e.preventDefault(); rez.classList.add('drag'); document.body.classList.add('rezing');
+    const move=ev=>setFW(ev.clientX-cols.getBoundingClientRect().left);
+    const up=()=>{rez.classList.remove('drag');document.body.classList.remove('rezing');
+      window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+  });
+  rez.addEventListener('dblclick',()=>setFW(288));
+})();
 
 // puxar do site
 $('#btn-puxar').onclick=async()=>{

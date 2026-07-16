@@ -21,8 +21,14 @@ def _tem(mod):
         return False
 
 
+# módulo importável -> pacote pip (nem sempre é o mesmo nome). O claude-agent-sdk é o
+# motor do chat streaming com sessão; sem ele o chat cai no single-shot (funciona, mas
+# sem streaming nem memória de conversa), então a falha de instalação NÃO trava o boot.
+_DEPS = {"flask": "flask", "claude_agent_sdk": "claude-agent-sdk>=0.2,<0.3"}
+
+
 def main():
-    faltando = [m for m in ("flask",) if not _tem(m)]
+    faltando = [pip for mod, pip in _DEPS.items() if not _tem(mod)]
     if faltando:
         print("Preparando o ambiente (uma vez só):", ", ".join(faltando))
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *faltando], check=False)

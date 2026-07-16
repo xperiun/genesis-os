@@ -2,7 +2,7 @@
 <!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
      View "Painel" do shell do OS do comprador: overview limpo (contadores, perfil, pulso
      ao vivo, fonte a conectar, como colocar o time pra trabalhar). Os agentes NÃO se
-     repetem aqui (moram na view "Meu time"/canvas). Lê /api/painel. Servido em /dashboard. -->
+     repetem aqui (moram na view "Agentes"/canvas). Lê /api/painel. Servido em /dashboard. -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -161,7 +161,7 @@
   </div>
   <aside class="rail">
     <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="fonte">—</p><small id="fonte-sub"></small></div>
-    <div class="panel"><div class="p-label"><span class="tick"></span>Como pôr o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente é invocável de verdade.<div class="ir-time" onclick="parent.location.hash='agentes'">ver e conversar com o time →</div></div></div>
+    <div class="panel"><div class="p-label"><span class="tick"></span>Como pôr o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente é invocável de verdade.<div class="ir-time" onclick="parent.location.hash='agentes'">ver e conversar com os agentes →</div></div></div>
   </aside>
 </main>
 
@@ -177,7 +177,7 @@ function render(d){
   const ativo=d.ativo;
   $('#estado').textContent=ativo?'time trabalhando':'no ar';
   $('#estado').style.color=ativo?'var(--live)':'var(--text-dim)';
-  $('#dot').classList.toggle('vivo',true);
+  $('#dot').classList.add('vivo'); // render só roda com payload em mãos. O catch do tick apaga o dot
   $('#k-ag').textContent=(d.agentes||[]).length;
   $('#k-sk').textContent=(d.skills||[]).length;
   $('#k-pulso').textContent=ativo?'trabalhando':'repouso';
@@ -192,6 +192,9 @@ function render(d){
   const pu=$('#pulso');
   if((d.pulso||[]).length){
     pu.innerHTML=d.pulso.map(e=>`<div class="ev"><div class="node"></div><div class="cb"><b>${esc(e.agente||'time')}</b> ${esc(e.acao||'')}</div><span class="t">${esc(e.quando||'')}</span></div>`).join('');
+  }else{
+    // feed esvaziou entre polls: devolve o estado de repouso, senão o conteúdo velho fica na tela
+    pu.innerHTML='<div class="vazio">Nada agora. Quando você pedir algo pro seu time no Claude Code, aparece aqui em tempo real.</div>';
   }
 }
 const MOCK={ativo:true,perfil:{nome:'Analista de dados, dashboards Power BI',resumo:['Analista de dados numa empresa média','Monta dashboards em Power BI','Trava na fila da engenharia pra liberar dado']},
@@ -200,7 +203,7 @@ const MOCK={ativo:true,perfil:{nome:'Analista de dados, dashboards Power BI',res
   pulso:[{agente:'Desbloqueador de Dados',acao:'montou a view de faturamento',quando:'agora'},{agente:'Arquiteto Power BI',acao:'ajustou as medidas DAX',quando:'2min'}]};
 async function tick(){
   if(DEMO){render(MOCK);return;}
-  try{render(await (await fetch('/api/painel')).json());}catch(e){$('#estado').textContent='offline';$('#estado').style.color='var(--error)';}
+  try{render(await (await fetch('/api/painel')).json());}catch(e){$('#estado').textContent='offline';$('#estado').style.color='var(--error)';$('#dot').classList.remove('vivo');}
 }
 tick();setInterval(tick,4000);
 </script>

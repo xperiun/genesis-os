@@ -11,6 +11,7 @@ R$ 0, sem chave paga). O OS nasce na RAIZ do repo (base = cwd, ou a env GENESIS_
 """
 import json
 import os
+import queue
 import secrets
 import sys
 import webbrowser
@@ -26,6 +27,7 @@ for cand in (AQUI, AQUI.parent / "nucleo"):
     if (cand / "genesis_motor.py").exists():
         sys.path.insert(0, str(cand))
         break
+import chat_sdk  # noqa: E402
 import genesis_motor  # noqa: E402
 import painel_backend as pb  # noqa: E402
 
@@ -160,9 +162,68 @@ def api_agente(slug):
 
 @app.post("/api/agente/<slug>/chat")
 def api_agente_chat(slug):
-    """Conversa com um agente do time (persona = .agent.md dele, na assinatura do comprador)."""
+    """Conversa com um agente do time, em STREAMING NDJSON (uma linha JSON por evento:
+    {tipo:'texto',delta} ... {tipo:'fim'}), na assinatura do comprador.
+
+    Caminho principal: claude-agent-sdk com sessão QUENTE por agente (o agente lembra do
+    papo; `novo:true` na 1ª mensagem da conversa recicla). Fallback: o single-shot
+    `pb.chat` (claude -p por turno, reenvia o histórico), que emite o texto inteiro de uma
+    vez, só se NADA foi streamado ainda (pra não duplicar). Mesmo contrato do agentic-os."""
     corpo = request.get_json(silent=True) or {}
-    return jsonify(pb.chat(BASE, slug, corpo.get("mensagens") or []))
+    mensagens = corpo.get("mensagens") or []
+    novo = bool(corpo.get("novo"))
+    mensagem = (corpo.get("mensagem") or "").strip()[:8000]
+    if not mensagem:   # compat: extrai a última fala do comprador do histórico
+        for m in reversed(mensagens):
+            if m.get("role") in ("voce", "user"):
+                mensagem = str(m.get("texto") or m.get("content") or "").strip()[:8000]
+                break
+    if not mensagem:
+        return jsonify({"erro": "mensagem vazia"}), 400
+    det, persona = pb.persona_chat(BASE, slug)
+    if not det:
+        return jsonify({"erro": "agente não encontrado"}), 404
+
+    fila = queue.Queue()
+    emitido = {"n": 0}
+
+    def emitir(delta):
+        emitido["n"] += 1
+        fila.put(("texto", delta))
+
+    def rodar():
+        try:
+            if chat_sdk.disponivel():
+                chat_sdk.responder(slug, persona, mensagem, str(BASE),
+                                   novo=novo, ao_texto=emitir)
+            else:
+                raise RuntimeError("SDK indisponível")
+        except Exception:
+            if emitido["n"] == 0:   # nada saiu ainda: o single-shot assume sem duplicar
+                r = pb.chat(BASE, slug, mensagens or [{"role": "voce", "texto": mensagem}])
+                if r.get("ok"):
+                    emitir(r["resposta"])
+                else:
+                    fila.put(("erro", r.get("erro") or "não consegui responder agora"))
+        finally:
+            fila.put(("fim", None))
+
+    Thread(target=rodar, daemon=True).start()
+
+    def gen():
+        # bytes, não str: com direct_passthrough o werkzeug exige bytes e um yield de
+        # string mata o stream no primeiro evento ("applications must write bytes")
+        while True:
+            tipo, d = fila.get()
+            if tipo == "fim":
+                yield (json.dumps({"tipo": "fim"}) + "\n").encode("utf-8")
+                return
+            if tipo == "erro":
+                yield (json.dumps({"tipo": "erro", "erro": d}, ensure_ascii=False) + "\n").encode("utf-8")
+                continue
+            yield (json.dumps({"tipo": "texto", "delta": d}, ensure_ascii=False) + "\n").encode("utf-8")
+
+    return Response(gen(), mimetype="application/x-ndjson", direct_passthrough=True)
 
 
 @app.get("/api/painel/layout")
@@ -252,15 +313,21 @@ def api_tasks_remover(cid):
 
 @app.post("/api/tasks/<cid>/ativar")
 def api_tasks_ativar(cid):
-    """Ativa uma ideia: dispara o build no repo do comprador; o card acompanha o build."""
+    """Ativa uma ideia: dispara o build no repo do comprador; o card acompanha o build.
+    O status só muda DEPOIS de o build aceitar: antes, uma recusa por concorrência
+    ("já tem um build rodando") deixava o card preso em 'Fazendo' pra sempre."""
     card = pb.task_obter(BASE, cid)
     if not card:
         return jsonify({"erro": "card não encontrado"}), 404
     tarefa = card["titulo"] + (("\n\n" + card["detalhe"]) if card.get("detalhe") else "")
     if card.get("agente"):
         tarefa = f"Use o agente {card['agente']} do time. " + tarefa
-    pb.task_atualizar(BASE, cid, status="doing", ativo=True)
-    return jsonify({"ok": True, "build": pb.build_iniciar(BASE, tarefa, origem=card.get("origem"))})
+    r = pb.build_iniciar(BASE, tarefa, origem=card.get("origem"),
+                         agente=card.get("agente") or "")
+    if not r.get("ok"):
+        return jsonify({"ok": False, "erro": r.get("erro") or "o build não aceitou"})
+    pb.task_atualizar(BASE, cid, status="doing", ativo=True, falhou=False)
+    return jsonify({"ok": True, "build": r})
 
 
 @app.get("/api/build")
@@ -274,7 +341,18 @@ def api_build_iniciar():
     tarefa = (c.get("tarefa") or "").strip()
     if not tarefa:
         return jsonify({"erro": "tarefa vazia"}), 400
-    return jsonify(pb.build_iniciar(BASE, tarefa))
+    # `contexto` = transcrição da conversa do chat (o build parte sabendo o que foi
+    # combinado); `agente` = slug do agente do time (alimenta o pulso do painel)
+    return jsonify(pb.build_iniciar(BASE, tarefa,
+                                    contexto=(c.get("contexto") or "").strip(),
+                                    agente=(c.get("agente") or "").strip()))
+
+
+@app.post("/api/build/parar")
+def api_build_parar():
+    """Encerra o build em andamento (o botão '■ Encerrar' era fake: trocava o rótulo e não
+    chamava nada, o único fim possível era o watchdog de 15min)."""
+    return jsonify(pb.build_parar(BASE))
 
 
 @app.post("/api/abrir")
@@ -299,8 +377,11 @@ def passo():
     corpo = request.get_json(silent=True) or {}
     # BASE = repo do comprador: o X entrevista JÁ tendo lido o que ele conectou na cena de
     # abastecimento (contexto/referencia/), em vez de perguntar o que já está escrito.
+    # `candidatos` = nomes já na fila do recrutamento (a cena acumula e devolve), a memória
+    # que impede o modelo de re-sugerir o mesmo papel com nome diferente a cada turno.
     return jsonify(genesis_motor.passo(corpo.get("historico") or [], BASE,
-                                       bool(corpo.get("montar_agora"))))
+                                       bool(corpo.get("montar_agora")),
+                                       corpo.get("candidatos") or []))
 
 
 # --- Abastecimento: o que o comprador conecta ANTES da entrevista --------------

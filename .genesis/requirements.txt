@@ -1,1 +1,5 @@
+# Dependências do Genesis (o sobe.py instala sozinho no first-run, o comprador não vê pip).
 flask>=3.0
+# Chat de agente com streaming + sessão viva, na assinatura do comprador (R$ 0 de token).
+# Sem ele o chat cai no single-shot via `claude -p` (funciona, sem streaming nem memória).
+claude-agent-sdk>=0.2,<0.3

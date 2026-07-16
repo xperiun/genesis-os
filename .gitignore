@@ -16,6 +16,7 @@
 /meu-os.json
 /.genesis-atividade.jsonl
 /.genesis-canvas-layout.json
+/.genesis-tasks.json
 
 # python
 __pycache__/
