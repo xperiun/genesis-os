@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "conectar",
+    "nome": "Conectar",
+    "ic": "🔌",
+    "cmd": "/conectar",
+    "desc": "Liga o seu OS às ferramentas que você já usa (CRM, ERP, planilha na nuvem, anúncios). Só declara sucesso quando uma chamada real devolve dado real."
+  },
+  {
+    "slug": "analisar",
+    "nome": "Analisar",
+    "ic": "🔍",
+    "cmd": "/analisar",
+    "desc": "Audita a planilha antes de responder qualquer pergunta sobre ela. Mostra as armadilhas que achou (subtotal no meio dos dados, data ambígua, dado pessoal) e reconcilia o resultado contra o próprio arquivo."
+  },
+  {
+    "slug": "extrair-design-system",
+    "nome": "Extrair design system",
+    "ic": "🎨",
+    "cmd": "/extrair-design-system",
+    "desc": "Extrai o design system de uma referência e gera o DS do seu OS. É a ferramenta do seu Guardião Visual."
+  },
+  {
+    "slug": "apresentar",
+    "nome": "Apresentar",
+    "ic": "🖥️",
+    "cmd": "/apresentar",
+    "desc": "Transforma um assunto em apresentação widescreen que abre no navegador e exporta PDF, com a cara da sua marca. Número que vira destaque no slide passa pela conferência antes."
+  }
+]

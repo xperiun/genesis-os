@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
      View "Skills" do shell: catálogo das skills do OS (.claude/skills/) + editor do SKILL.md.
-     Lista as skills sob medida, com a /extrair-design-system marcada como obrigatória.
+     Lista as skills do OS: as sob medida (escritas na entrevista), as CORE (nossas, badge
+     'do OS') e as bônus (brinde, badge 'bônus'). As duas últimas vêm dos manifestos em
+     .genesis/core-skills.json e bonus-skills.json.
      Preview antes de Editar. Lê /api/skills e /api/skill/<slug>. -->
 <html lang="pt-BR">
 <head>
@@ -84,7 +86,7 @@
 </style>
 </head>
 <body>
-<header><h1>Skills<span>As automações sob medida do seu OS</span></h1><div id="cnt"></div></header>
+<header><h1>Skills<span>As automações do seu OS</span></h1><div id="cnt"></div></header>
 <div class="wrap">
   <div class="lista" id="lista"></div>
   <div class="painel">
@@ -106,7 +108,10 @@ const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_SK=[
   {slug:'nova-view',nome:'Nova view',ic:'⚡',cmd:'/nova-view',desc:'Gera a view SQL a partir da necessidade do dashboard.'},
   {slug:'modelo-financeiro',nome:'Modelo financeiro',ic:'📊',cmd:'/modelo-financeiro',desc:'Monta o modelo estrela do financeiro no Power BI.'},
+  {slug:'conectar',nome:'Conectar',ic:'🔌',cmd:'/conectar',desc:'Liga o seu OS às ferramentas que você já usa. Só declara sucesso quando uma chamada real devolve dado real.',obrigatoria:true},
+  {slug:'analisar',nome:'Analisar',ic:'🔍',cmd:'/analisar',desc:'Audita a planilha antes de responder qualquer pergunta sobre ela, e reconcilia o resultado contra o próprio arquivo.',obrigatoria:true},
   {slug:'extrair-design-system',nome:'Extrair design system',ic:'🎨',cmd:'/extrair-design-system',desc:'Extrai o design system de uma referência e gera o DS do seu OS.',obrigatoria:true},
+  {slug:'apresentar',nome:'Apresentar',ic:'🖥️',cmd:'/apresentar',desc:'Transforma um assunto em apresentação widescreen que abre no navegador e exporta PDF, com a cara da sua marca.',obrigatoria:true},
   {slug:'site-reveal-cinematico',nome:'Site com Reveal Cinematográfico',ic:'🎬',cmd:'/site-reveal-cinematico',desc:'Cria um site scroll-driven com reveal cinematográfico (estilo Apple). Ótimo pra portfólio: mostrar seus dashboards num site premium.',bonus:true},
 ];
 const MOCK_SKC={
@@ -168,8 +173,8 @@ function renderLista(){
     <div class="sk ${atual&&atual.slug===s.slug?'sel':''}" data-slug="${esc(s.slug)}">
       <div class="sk-top"><div class="sk-ico">${esc(s.ic||'⚡')}</div>
         <div class="sk-id"><div class="sk-cmd">${esc(s.cmd||('/'+s.slug))}</div><div class="sk-nome">${esc(s.nome||s.slug)}</div></div>
-        ${s.obrigatoria?'<span class="sk-badge">obrig.</span>':''}${s.bonus?'<span class="sk-badge">bônus</span>':''}</div>
-      <div class="sk-desc">${esc((s.desc||'').slice(0,140)||'Automação sob medida do seu OS.')}</div>
+        ${s.obrigatoria?'<span class="sk-badge">do OS</span>':''}${s.bonus?'<span class="sk-badge">bônus</span>':''}</div>
+      <div class="sk-desc">${esc((s.desc||'').slice(0,140)||'Automação do seu OS.')}</div>
     </div>`).join('')||'<div class="fvazio" style="padding-top:8vh"><span class="em">◇</span>Sem skills ainda. Elas nascem quando você monta o time.</div>';
   document.querySelectorAll('.sk').forEach(el=>el.onclick=()=>abrir(el.dataset.slug));
 }

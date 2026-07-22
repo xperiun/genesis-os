@@ -643,8 +643,11 @@ const corIdx=(i)=>PALETA[i%PALETA.length];
 // ---------- skills bônus (fixas, já vêm prontas no template) ----------
 // Fonte canônica: .genesis/bonus-skills.json (o backend usa o mesmo pra marcar `bonus` no
 // catálogo). Aqui é só o display do reveal. Pra adicionar outra skill bônus: bundle a skill
-// em .claude/skills/<slug>/, adicione a entrada nos DOIS (bonus-skills.json + esta lista).
+// em .genesis/skills-bonus/<slug>/ (o instalar() copia pra .claude/skills/ na montagem) e
+// adicione a entrada nos DOIS (bonus-skills.json + esta lista).
 // Não são "seu time sob medida" — são brinde, por isso aparecem num bloco separado.
+// Skill CORE (ferramenta fixa do OS, ex: /analisar, /apresentar) NÃO entra aqui: ela não é
+// brinde, mora em .genesis/skills-core/ + core-skills.json, e o badge dela é "do OS".
 const BONUS_SKILLS=[
   {ic:'🎬',slug:'site-reveal-cinematico',cmd:'/site-reveal-cinematico',desc:'Cria um site onde <b>cada rolagem avança um frame de um vídeo</b> (estilo Apple product reveal). Ótimo pra portfólio: um site premium pra mostrar seus dashboards e projetos.'},
 ];

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TÍTULO DO DECK</title>
+
+<!-- ============================================
+     FONTS — INJETAR do DS escolhido
+     ============================================
+     O <link> do Google Fonts (ou @font-face custom) vai aqui.
+     Pegar do DS escolhido (o seu, extraído com /extrair-design-system,
+     ou o sóbrio de referencias/ds-sobrio.md). Exemplo:
+
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
+     Substituir pelo que o DS escolhido usa.
+============================================ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- FONTS_PLACEHOLDER: trocar pela linha <link> do DS escolhido -->
+
+<style>
+/* ============================================
+   FILOSOFIA EDITORIAL — LEIA referencias/gramatica-slide.md
+   ============================================
+
+   ESSE ESQUELETO É DS-AGNOSTIC — não tem fonte, paleta ou
+   ornamentação própria. Tudo vem dos tokens do design system
+   escolhido: o SEU (extraído com /extrair-design-system) ou o
+   sóbrio de referencias/ds-sobrio.md.
+
+   As 5 regras invioláveis da gramática de slide:
+   1. UM HERÓI POR SLIDE — big numbers dominam (6-16vw),
+      textos de apoio são MINÚSCULOS (1-1.6vw).
+   2. RESPIRAÇÃO É DESIGN — metade do slide vazia é IDEAL.
+   3. CARDS SÓBRIOS — border 1px sutil, background 0.06,
+      SEM backdrop-blur em cards default.
+   4. UI FIXA MÍNIMA — slide-counter + nav-dots, nada mais.
+   5. Fonte base sóbria — ornamental SÓ em heróis/punchline.
+============================================ */
+
+/* ============================================
+   BASE RESET
+   ============================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+body {
+  background: var(--bg-dark-3, #050510);
+  font-family: var(--font-sans, -apple-system, sans-serif);
+  color: var(--text-on-dark, #F5F0E8);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================
+   TOKENS — SUBSTITUIR pelos tokens do DS escolhido
+
+   Abrir o design-system.html escolhido, extrair valores em hex
+   e trocar os placeholders abaixo. Manter a nomenclatura genérica
+   (--bg-dark-1, --accent-primary, etc.) — assim a gramática de
+   slide funciona igual independente do DS.
+
+   Ver referencias/gramatica-slide.md §5.1 pra guia de extração.
+============================================ */
+:root {
+  /* Os valores abaixo são CINZA de propósito: eles não são um design, são um
+     lugar reservado. Deck cinza na tela é o sinal de que você esqueceu de
+     injetar o DS. Troque TODOS antes de mostrar pra alguém. */
+
+  /* --- Background dark (3 stops de gradient radial) --- */
+  --bg-dark-1: /* DS_TOKEN */ #1C1C20;
+  --bg-dark-2: /* DS_TOKEN */ #131316;
+  --bg-dark-3: /* DS_TOKEN */ #0B0B0D;
+
+  /* --- Background light (cream/off-white do DS) --- */
+  --bg-light:      /* DS_TOKEN */ #F2F2F0;
+  --bg-light-card: /* DS_TOKEN */ #FBFBFA;
+
+  /* --- Accents (até 3: primary/secondary/tertiary do DS) --- */
+  /* atenção: o tertiary é o que o modo claro usa, tem que ser o mais ESCURO */
+  --accent-primary:   /* DS_TOKEN */ #9AA0A6;
+  --accent-secondary: /* DS_TOKEN */ #C4C9CE;
+  --accent-tertiary:  /* DS_TOKEN */ #5A6067;
+
+  /* --- Texto --- */
+  --text-on-dark:       /* DS_TOKEN */ #F2F2F0;
+  --text-on-dark-soft:  /* DS_TOKEN */ #D6D6D2;
+  --text-on-light:      /* DS_TOKEN */ #1A1A1A;
+  --text-muted:         /* DS_TOKEN */ #8A8A8A;
+
+  /* --- Fontes --- */
+  /* base sóbria: é usada em 99% do texto (taglines, statements, UI) */
+  --font-sans:     /* DS_TOKEN */ system-ui, -apple-system, sans-serif;
+  /* ornamental: EXCLUSIVA de heróis (big numbers, título capa) e punchline de fechamento */
+  --font-ornament: /* DS_TOKEN */ Georgia, 'Times New Roman', serif;
+  /* display (opcional): pra títulos CAPS — se o DS tiver um */
+  --font-display:  /* DS_TOKEN */ system-ui, -apple-system, sans-serif;
+
+  /* ============================================
+     TYPE SCALE — CALIBRADA PRA SLIDE WIDESCREEN (não alterar)
+
+     Esses valores são calibrados pra manter a proporção ≥10:1
+     entre herói e apoio, no viewport 16:9. NÃO copiar escalas
+     do DS de site: site usa tamanho menor porque é self-paced.
+     ============================================ */
+
+  /* --- HERÓIS (2-4 big numbers do deck) --- */
+  --size-big-number:   clamp(6rem, 16vw, 16rem);   /* 96-256px */
+  --size-brand:        clamp(4rem, 11vw, 11rem);   /* 64-176px — título capa */
+  --size-brand-center: clamp(5rem, 13vw, 14rem);   /* 80-224px — centro dramático */
+
+  /* --- TÍTULOS DE SEÇÃO --- */
+  --size-section-title:    clamp(2rem, 4.5vw, 4.5rem); /* 32-72px */
+  --size-section-title-lg: clamp(2rem, 5vw, 5rem);     /* 32-80px */
+
+  /* --- TAGLINE / SUBTÍTULO --- */
+  --size-tagline: clamp(1rem, 1.6vw, 1.4rem); /* 16-22.4px */
+
+  /* --- STATS secundários --- */
+  --size-stat: clamp(3rem, 6vw, 5.5rem); /* 48-88px */
+
+  /* --- TEXTOS DE APOIO --- */
+  --size-statement: clamp(0.95rem, 1.6vw, 1.4rem); /* 15-22.4px */
+  --size-caption:   clamp(1rem, 1.8vw, 1.6rem);    /* 16-25.6px */
+
+  /* --- CARDS --- */
+  --size-card-num:   clamp(2rem, 4.5vw, 4rem);        /* 32-64px */
+  --size-card-title: clamp(0.9rem, 1.3vw, 1.15rem);   /* 14.4-18.4px */
+  --size-card-desc:  clamp(0.75rem, 1.05vw, 0.95rem); /* 12-15.2px */
+
+  /* --- UI MINI --- */
+  --size-overline: clamp(0.7rem, 1vw, 0.9rem);     /* 11-14.4px */
+  --size-small:    clamp(0.65rem, 0.9vw, 0.85rem); /* 10.4-13.6px */
+
+  /* --- PUNCHLINE (fonte ornamental, só em fechamentos) --- */
+  --size-punch: clamp(1rem, 2vw, 1.6rem); /* 16-25.6px */
+}
+
+/* ============================================
+   CANVAS — cada .slide = 1 viewport
+   ============================================ */
+.slide {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  scroll-snap-align: start;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 50%, var(--bg-dark-1) 0%, var(--bg-dark-2) 50%, var(--bg-dark-3) 100%);
+  color: var(--text-on-dark);
+}
+.slide.dark-tl { background: radial-gradient(ellipse at 30% 30%, var(--bg-dark-1) 0%, var(--bg-dark-2) 50%, var(--bg-dark-3) 100%); }
+.slide.dark-tr { background: radial-gradient(ellipse at 70% 30%, var(--bg-dark-1) 0%, var(--bg-dark-2) 50%, var(--bg-dark-3) 100%); }
+.slide.dark-bl { background: radial-gradient(ellipse at 30% 70%, var(--bg-dark-1) 0%, var(--bg-dark-2) 50%, var(--bg-dark-3) 100%); }
+.slide.dark-br { background: radial-gradient(ellipse at 70% 70%, var(--bg-dark-1) 0%, var(--bg-dark-2) 50%, var(--bg-dark-3) 100%); }
+.slide.light {
+  background: var(--bg-light);
+  color: var(--text-on-light);
+}
+
+.slide-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-height: 100%;
+  overflow: hidden;
+  /* Padding generoso — respiração é design */
+  padding: clamp(2rem, 5vw, 5rem) clamp(2rem, 6vw, 6rem);
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================
+   ORNAMENTAÇÃO DE FUNDO — adaptar à vibe do DS
+
+   - DS neon/maximalista: usar 3 bokeh (primary/secondary/tertiary)
+   - DS corporate/sóbrio: 1 gradient radial + beam lines opcional
+   - DS minimalista/flat: remover bokeh, usar só borders/dividers
+
+   Ver referencias/gramatica-slide.md §4 pro guia por vibe.
+   ============================================ */
+.bokeh {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Intensidades default — reduzir pra DS sóbrio, aumentar pra DS maximalista */
+.bokeh-primary    { background: radial-gradient(circle, color-mix(in srgb, var(--accent-primary) 16%, transparent) 0%, transparent 60%); }
+.bokeh-secondary  { background: radial-gradient(circle, color-mix(in srgb, var(--accent-secondary) 14%, transparent) 0%, transparent 65%); }
+.bokeh-tertiary   { background: radial-gradient(circle, color-mix(in srgb, var(--accent-tertiary) 12%, transparent) 0%, transparent 65%); }
+.bokeh-primary-light   { background: radial-gradient(circle, color-mix(in srgb, var(--accent-primary) 10%, transparent) 0%, transparent 65%); }
+.bokeh-secondary-light { background: radial-gradient(circle, color-mix(in srgb, var(--accent-secondary) 7%, transparent) 0%, transparent 65%); }
+
+/* ============================================
+   PADRÕES TIPOGRÁFICOS UNIVERSAIS
+   ============================================ */
+
+/* Overline — microscópico (11-14px), base sóbria */
+.overline {
+  font-family: var(--font-sans);
+  font-size: var(--size-overline);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  color: var(--accent-secondary);
+  margin-bottom: clamp(0.8rem, 1.5vw, 1.5rem);
+}
+.slide.light .overline { color: var(--accent-tertiary); }
+
+/* Punchline — EXCLUSIVA de fechamentos curtos, fonte ornamental */
+.punchline {
+  font-family: var(--font-ornament);
+  font-style: italic;
+  font-size: var(--size-punch);
+  color: var(--accent-secondary);
+  line-height: 1.3;
+}
+
+/* Divider accent — gradient horizontal curto */
+.divider-accent {
+  width: clamp(40px, 4vw, 64px);
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 2px;
+  margin: clamp(0.8rem, 1.5vw, 1.5rem) 0;
+}
+
+/* Big number — hero absoluto (fonte ornamental GIGANTE) */
+.big-number {
+  font-family: var(--font-ornament);
+  font-weight: 300;
+  font-size: var(--size-big-number);
+  line-height: 0.82;
+  letter-spacing: -0.04em;
+  color: var(--text-on-dark);
+  margin: 0 0 clamp(0.5rem, 1vw, 1rem);
+  position: relative;
+  z-index: 2;
+}
+.big-number small {
+  font-size: 0.4em;
+  color: var(--accent-primary);
+  font-weight: 400;
+  vertical-align: super;
+}
+
+/* Caption italic — Cormorant-style italic depois do big number (pequeno!) */
+.caption-italic {
+  font-family: var(--font-ornament);
+  font-weight: 400;
+  font-style: italic;
+  font-size: var(--size-caption);
+  color: var(--text-on-dark-soft);
+  line-height: 1.4;
+  max-width: min(800px, 85%);
+  margin-bottom: clamp(1rem, 2vw, 2rem);
+  position: relative;
+  z-index: 2;
+}
+
+/* Statement — texto de apoio (PEQUENO, base sóbria) */
+.statement {
+  font-family: var(--font-sans);
+  font-size: var(--size-statement);
+  font-weight: 500;
+  color: var(--text-on-dark);
+  line-height: 1.45;
+  max-width: min(900px, 90%);
+  margin-bottom: clamp(0.8rem, 1.5vw, 1.5rem);
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================
+   MODO CLARO — as classes de texto acima fixam a cor do modo escuro, e
+   `.slide.light` sozinho não vence (a regra do filho é mais específica que
+   a do pai). Sem estes 3 overrides, big-number, caption e statement saem
+   BRANCOS em fundo cream, ou seja, invisíveis. Pego rodando o deck de
+   verdade num slide light, não no diff.
+   ============================================ */
+.slide.light .big-number,
+.slide.light .statement { color: var(--text-on-light); }
+.slide.light .caption-italic { color: color-mix(in srgb, var(--text-on-light) 75%, transparent); }
+
+/* Source footnote — fonte/atribuição em caps tiny */
+.source {
+  font-family: var(--font-sans);
+  font-size: var(--size-small);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  position: relative;
+  z-index: 2;
+}
+
+/* ============================================
+   CARDS SÓBRIOS — regra 3 da filosofia editorial
+   Border 1px 0.3, background 0.06, SEM backdrop-blur.
+   ============================================ */
+.card {
+  background: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  border-radius: 14px;
+  padding: clamp(1rem, 2vw, 2rem);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+}
+.card.secondary {
+  background: color-mix(in srgb, var(--accent-secondary) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent-secondary) 30%, transparent);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--accent-secondary) 8%, transparent);
+}
+.card.secondary::before { background: linear-gradient(90deg, transparent, var(--accent-secondary), transparent); }
+.card.tertiary {
+  background: color-mix(in srgb, var(--accent-tertiary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-tertiary) 40%, transparent);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--accent-tertiary) 10%, transparent);
+}
+.card.tertiary::before { background: linear-gradient(90deg, transparent, var(--accent-tertiary), transparent); }
+
+/* ============================================
+   UI FIXA — slide-counter (top-right) + nav-dots (right vertical)
+   NÃO há brand-pill fixa. Nunca. Em nenhum DS.
+   ============================================ */
+.slide-counter {
+  position: fixed;
+  top: clamp(1rem, 2vw, 2rem);
+  right: clamp(1rem, 2vw, 2rem);
+  font-family: var(--font-sans);
+  font-size: var(--size-overline);
+  font-weight: 600;
+  color: var(--text-on-dark-soft);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);
+  padding: 6px 14px;
+  border-radius: 100px;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.1em;
+}
+.nav-dots {
+  position: fixed;
+  right: clamp(1rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-on-dark) 22%, transparent);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  padding: 0;
+}
+.nav-dot.active {
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-primary);
+  transform: scale(1.3);
+}
+.nav-dot:hover { background: var(--accent-secondary); }
+body.current-light .nav-dot { background: color-mix(in srgb, var(--text-on-light) 20%, transparent); }
+body.current-light .nav-dot.active {
+  background: var(--accent-tertiary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent-tertiary) 70%, transparent);
+}
+body.current-light .slide-counter {
+  background: color-mix(in srgb, var(--accent-tertiary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-tertiary) 30%, transparent);
+  color: var(--text-on-light);
+}
+@media (max-width: 600px) { .nav-dots { display: none; } }
+
+/* ============================================
+   REVEAL ANIMATIONS (stagger via nth-child) — universal
+   ============================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.slide.visible .reveal:nth-child(1) { transition-delay: 0.1s; }
+.slide.visible .reveal:nth-child(2) { transition-delay: 0.25s; }
+.slide.visible .reveal:nth-child(3) { transition-delay: 0.4s; }
+.slide.visible .reveal:nth-child(4) { transition-delay: 0.55s; }
+.slide.visible .reveal:nth-child(5) { transition-delay: 0.7s; }
+.slide.visible .reveal:nth-child(6) { transition-delay: 0.85s; }
+.slide.visible .reveal:nth-child(7) { transition-delay: 1.0s; }
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide.visible .reveal-scale { opacity: 1; transform: scale(1); }
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-50px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide.visible .reveal-left { opacity: 1; transform: translateX(0); }
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(50px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide.visible .reveal-right { opacity: 1; transform: translateX(0); }
+
+.reveal-blur {
+  opacity: 0;
+  filter: blur(12px);
+  transition: opacity 1s ease-out, filter 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide.visible .reveal-blur { opacity: 1; filter: blur(0); }
+
+.slide.visible .reveal-scale:nth-child(1),
+.slide.visible .reveal-left:nth-child(1),
+.slide.visible .reveal-right:nth-child(1),
+.slide.visible .reveal-blur:nth-child(1) { transition-delay: 0.1s; }
+.slide.visible .reveal-scale:nth-child(2),
+.slide.visible .reveal-left:nth-child(2),
+.slide.visible .reveal-right:nth-child(2),
+.slide.visible .reveal-blur:nth-child(2) { transition-delay: 0.25s; }
+.slide.visible .reveal-scale:nth-child(3),
+.slide.visible .reveal-left:nth-child(3),
+.slide.visible .reveal-right:nth-child(3),
+.slide.visible .reveal-blur:nth-child(3) { transition-delay: 0.4s; }
+.slide.visible .reveal-scale:nth-child(4),
+.slide.visible .reveal-left:nth-child(4),
+.slide.visible .reveal-right:nth-child(4),
+.slide.visible .reveal-blur:nth-child(4) { transition-delay: 0.55s; }
+.slide.visible .reveal-scale:nth-child(5),
+.slide.visible .reveal-left:nth-child(5),
+.slide.visible .reveal-right:nth-child(5),
+.slide.visible .reveal-blur:nth-child(5) { transition-delay: 0.7s; }
+.slide.visible .reveal-scale:nth-child(6),
+.slide.visible .reveal-left:nth-child(6),
+.slide.visible .reveal-right:nth-child(6),
+.slide.visible .reveal-blur:nth-child(6) { transition-delay: 0.85s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-scale, .reveal-left, .reveal-right, .reveal-blur {
+    transition-duration: 0.2s !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+@media (max-height: 700px) {
+  :root {
+    --size-big-number: clamp(5rem, 13vw, 13rem);
+    --size-brand: clamp(3.5rem, 9vw, 9rem);
+  }
+}
+@media (max-width: 900px) {
+  .slide-content { padding: clamp(1.5rem, 4vw, 4rem) clamp(1.5rem, 4vw, 4rem); }
+}
+
+/* ============================================
+   ESTILOS DE EXEMPLO (capa + CTA) — editar conforme o DS
+   Os 3 slides abaixo mostram a estrutura mínima. Depois de
+   injetar os tokens do DS, cada slide ganha a vibe do DS
+   automaticamente via CSS variables.
+   ============================================ */
+.s-capa { display: flex !important; flex-direction: row; }
+.s-capa .left {
+  flex: 1.1;
+  padding: clamp(2rem, 5vw, 5rem);
+  display: flex; flex-direction: column; justify-content: center;
+  position: relative; z-index: 2;
+}
+.s-capa .right {
+  flex: 0.9;
+  padding: clamp(2rem, 5vw, 5rem);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(1rem, 2vw, 2rem);
+  background: rgba(0,0,0,0.25);
+  position: relative; z-index: 2;
+  border-left: 1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+.s-capa .badge {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: var(--size-overline);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--accent-secondary);
+  background: color-mix(in srgb, var(--accent-secondary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, transparent);
+  padding: 6px 16px;
+  border-radius: 100px;
+  margin-bottom: clamp(1.5rem, 3vw, 3rem);
+  align-self: flex-start;
+  font-weight: 600;
+}
+.s-capa .title-hero {
+  font-family: var(--font-ornament);
+  font-weight: 700;
+  font-size: var(--size-brand);
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 clamp(0.5rem, 1vw, 1rem);
+}
+.s-capa .title-hero em { font-style: normal; }
+.s-capa .title-divider {
+  width: clamp(60px, 6vw, 100px);
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  margin: clamp(1rem, 2vw, 2rem) 0;
+}
+.s-capa .tagline {
+  font-family: var(--font-sans);
+  font-size: var(--size-tagline);
+  font-weight: 500;
+  color: var(--text-on-dark-soft);
+  max-width: 90%;
+  line-height: 1.4;
+  margin-bottom: clamp(1.5rem, 3vw, 3rem);
+}
+.s-capa .tagline em {
+  font-style: normal;
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+.s-capa .meta {
+  font-family: var(--font-sans);
+  font-size: var(--size-small);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+}
+.s-capa .stat {
+  padding: clamp(0.8rem, 1.5vw, 1.5rem) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+.s-capa .stat:last-child { border-bottom: none; }
+.s-capa .stat-num {
+  font-family: var(--font-ornament);
+  font-weight: 300;
+  font-size: var(--size-stat);
+  line-height: 1;
+  color: var(--accent-primary);
+  margin-bottom: 0.3rem;
+}
+.s-capa .stat-num.secondary { color: var(--accent-secondary); }
+.s-capa .stat-num.tertiary { color: var(--accent-tertiary); }
+.s-capa .stat-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-card-title);
+  color: var(--text-on-dark-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+@media (max-width: 900px) {
+  .s-capa { flex-direction: column; }
+  .s-capa .right { border-left: none; border-top: 1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent); }
+}
+</style>
+</head>
+<body>
+
+  <!-- UI FIXA: slide counter (top-right) + nav dots (right vertical) -->
+  <div class="slide-counter" id="slideCounter">01 / 03</div>
+  <nav class="nav-dots" id="navDots" aria-label="Navegação"></nav>
+
+
+  <!-- ============================================
+       SLIDE 1 — CAPA (exemplo editável)
+       Trocar título, tagline, stats e meta conforme briefing.
+       ============================================ -->
+  <section class="slide s-capa">
+    <div class="bokeh bokeh-primary" style="top:-15%;left:-10%;width:50%;height:60%;"></div>
+    <div class="bokeh bokeh-secondary" style="top:40%;left:40%;width:45%;height:45%;"></div>
+    <div class="bokeh bokeh-tertiary" style="bottom:-15%;right:-10%;width:40%;height:40%;"></div>
+
+    <div class="left">
+      <span class="badge reveal">TIPO DE DECK · ANO</span>
+      <h1 class="title-hero reveal">TÍTULO <em>PRINCIPAL.</em></h1>
+      <div class="title-divider reveal"></div>
+      <p class="tagline reveal">Subtítulo com uma <em>palavra-chave</em> destacada do valor principal do deck.</p>
+      <p class="meta reveal">HANDLE · EVENTO · DATA</p>
+    </div>
+    <div class="right">
+      <div class="stat reveal">
+        <div class="stat-num">STAT1</div>
+        <div class="stat-label">descrição curta</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-num secondary">STAT2</div>
+        <div class="stat-label">descrição curta</div>
+      </div>
+      <div class="stat reveal">
+        <div class="stat-num tertiary">STAT3</div>
+        <div class="stat-label">descrição curta</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================
+       SLIDE 2 — BIG NUMBER (exemplo editável)
+       Trocar pelo dado-âncora do deck.
+       ============================================ -->
+  <section class="slide dark-tl">
+    <div class="bokeh bokeh-primary" style="top:-10%;left:-15%;width:55%;height:55%;"></div>
+    <div class="bokeh bokeh-secondary" style="bottom:-15%;right:-10%;width:50%;height:50%;"></div>
+    <div class="bokeh bokeh-tertiary" style="top:50%;left:55%;width:35%;height:35%;"></div>
+
+    <div class="slide-content" style="align-items:flex-start;text-align:left;">
+      <p class="overline reveal">O ponto de partida</p>
+      <p class="big-number reveal">NN<small>%</small></p>
+      <p class="caption-italic reveal">caption italic curto explicando o número.</p>
+      <div class="divider-accent reveal"></div>
+      <p class="statement reveal">Statement de apoio, base sóbria, máximo 2 linhas — o big number é o herói, isso é ancoragem.</p>
+      <p class="source reveal">Fonte · amostra · período</p>
+    </div>
+  </section>
+
+
+  <!-- ============================================
+       SLIDE 3 — CTA FINAL (exemplo editável)
+       Centro dramático + statement + card com handle/URL.
+       ============================================ -->
+  <section class="slide">
+    <div class="bokeh bokeh-primary" style="top:-15%;left:-15%;width:65%;height:65%;"></div>
+    <div class="bokeh bokeh-secondary" style="bottom:-15%;right:-15%;width:60%;height:60%;"></div>
+    <div class="bokeh bokeh-tertiary" style="top:30%;right:30%;width:30%;height:30%;"></div>
+
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(90vw,1000px);aspect-ratio:1;border:1px solid color-mix(in srgb, var(--accent-primary) 10%, transparent);border-radius:50%;z-index:0;"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(70vw,780px);aspect-ratio:1;border:1px solid color-mix(in srgb, var(--accent-secondary) 10%, transparent);border-radius:50%;z-index:0;"></div>
+
+    <div class="slide-content" style="align-items:center;text-align:center;">
+      <p class="overline reveal" style="text-align:center;">CHAMADA CURTA</p>
+      <h2 class="reveal" style="font-family:var(--font-sans);font-weight:800;font-size:clamp(2.5rem,5vw,5rem);line-height:1.1;color:var(--text-on-dark);margin:0 0 clamp(1rem,2vw,2rem);">
+        Título final<br>
+        <em style="font-style:italic;font-family:var(--font-ornament);font-weight:700;color:var(--accent-primary);">em destaque.</em>
+      </h2>
+      <div class="divider-accent reveal" style="margin:0 auto clamp(1rem,2vw,2rem);"></div>
+      <p class="punchline reveal" style="max-width:min(700px,90%);">Punchline curta de fechamento — fonte ornamental, máximo 1 linha.</p>
+      <div class="reveal" style="margin-top:clamp(2rem,4vw,3rem);padding:clamp(1rem,2vw,2rem) clamp(2rem,4vw,4rem);background:color-mix(in srgb, var(--accent-primary) 5%, transparent);border:1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent);border-radius:12px;backdrop-filter:blur(8px);">
+        <div style="font-family:var(--font-sans);font-size:clamp(1rem,1.5vw,1.3rem);font-weight:700;color:var(--accent-primary);letter-spacing:0.1em;margin-bottom:0.4rem;">@handle</div>
+        <div style="font-family:var(--font-ornament);font-style:italic;font-size:var(--size-caption);color:var(--text-on-dark-soft);">url.com</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================
+       CONTROLLER — navegação + reveal + UI tracking
+       ============================================ -->
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const navDotsContainer = document.getElementById('navDots');
+      const slideCounter = document.getElementById('slideCounter');
+
+      // Nav dots: 1 botão por slide
+      navDotsContainer.innerHTML = '';
+      slides.forEach((slide, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'nav-dot';
+        btn.setAttribute('aria-label', `Slide ${i + 1}`);
+        btn.addEventListener('click', () => {
+          slides[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        navDotsContainer.appendChild(btn);
+      });
+      const dots = Array.from(navDotsContainer.querySelectorAll('.nav-dot'));
+
+      // IntersectionObserver: .visible + current-slide tracking
+      let currentIndex = 0;
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const idx = slides.indexOf(entry.target);
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+              entry.target.classList.add('visible');
+              currentIndex = idx;
+              updateUI();
+            }
+          });
+        },
+        { threshold: [0, 0.5, 1] }
+      );
+      slides.forEach((s) => io.observe(s));
+
+      // Garantir .visible no primeiro slide ao carregar
+      slides[0]?.classList.add('visible');
+
+      function updateUI() {
+        dots.forEach((d, i) => d.classList.toggle('active', i === currentIndex));
+        if (slideCounter) {
+          const n = String(currentIndex + 1).padStart(2, '0');
+          const t = String(slides.length).padStart(2, '0');
+          slideCounter.textContent = `${n} / ${t}`;
+        }
+        document.body.classList.toggle(
+          'current-light',
+          slides[currentIndex].classList.contains('light')
+        );
+      }
+
+      // Keyboard nav
+      document.addEventListener('keydown', (e) => {
+        const targets = {
+          ArrowDown: 1, ArrowRight: 1, PageDown: 1, ' ': 1,
+          ArrowUp: -1, ArrowLeft: -1, PageUp: -1,
+          Home: 'first', End: 'last',
+        };
+        const action = targets[e.key];
+        if (action === undefined) return;
+        e.preventDefault();
+        let next = currentIndex;
+        if (action === 'first') next = 0;
+        else if (action === 'last') next = slides.length - 1;
+        else next = Math.max(0, Math.min(slides.length - 1, currentIndex + action));
+        if (next !== currentIndex) {
+          slides[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+
+      // Touch/swipe nav
+      let touchStartY = null;
+      document.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+      document.addEventListener('touchend', (e) => {
+        if (touchStartY === null) return;
+        const touchEndY = e.changedTouches[0].clientY;
+        const diff = touchStartY - touchEndY;
+        if (Math.abs(diff) < 50) { touchStartY = null; return; }
+        const dir = diff > 0 ? 1 : -1;
+        const next = Math.max(0, Math.min(slides.length - 1, currentIndex + dir));
+        if (next !== currentIndex) {
+          slides[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        touchStartY = null;
+      }, { passive: true });
+
+      updateUI();
+    })();
+  </script>
+</body>
+</html>

@@ -509,28 +509,45 @@ def referencia_remover(base, rel):
         return False
 
 
-def _bonus_slugs():
-    """Slugs das skills-brinde (fixas, nossas), lidas do manifesto .genesis/bonus-skills.json.
-    São as skills que já vêm prontas no template (ex: /site-reveal-cinematico), separadas das
-    sob medida que o Genesis escreve na entrevista."""
-    f = Path(__file__).resolve().parent / "bonus-skills.json"
+def _slugs_manifesto(nome_arquivo):
+    """Slugs de um manifesto de skill de template (.genesis/<nome>.json). São as skills FIXAS
+    nossas, que já vêm prontas no template, em oposição às sob medida que o Genesis escreve
+    na entrevista. Manifesto ilegível ou ausente devolve conjunto vazio (o catálogo degrada
+    pra 'sem badge', nunca quebra)."""
+    f = Path(__file__).resolve().parent / nome_arquivo
     try:
         return {s.get("slug") for s in json.loads(f.read_text(encoding="utf-8"))}
     except Exception:
         return set()
 
 
+def _bonus_slugs():
+    """Slugs das skills-brinde (ex: /site-reveal-cinematico)."""
+    return _slugs_manifesto("bonus-skills.json")
+
+
+def _core_slugs():
+    """Slugs das skills CORE, as ferramentas fixas do OS (ex: /analisar, /apresentar).
+
+    Era um `d.name == "extrair-design-system"` hardcoded, e por isso `/analisar`, `/conectar` e
+    `/apresentar` apareciam no catálogo SEM badge, indistinguíveis das sob medida: o dono achava
+    que o Genesis tinha escrito elas pra ele na entrevista. Isso fere a invariante de honestidade
+    (nada de teatro). Skill nossa se declara nossa, e a lista de quais são vive no manifesto."""
+    return _slugs_manifesto("core-skills.json")
+
+
 def skills(base):
-    """Skills do OS (.claude/skills/*/SKILL.md), nome+desc do frontmatter. Marca `bonus` nas
-    skills-brinde (manifesto) pra o catálogo mostrá-las separadas das sob medida."""
+    """Skills do OS (.claude/skills/*/SKILL.md), nome+desc do frontmatter. Marca `obrigatoria`
+    (core, ferramenta fixa do OS) e `bonus` (brinde) pelos manifestos, pra o catálogo mostrar as
+    nossas separadas das sob medida."""
     sdir = Path(base) / ".claude" / "skills"
-    bonus = _bonus_slugs()
+    core, bonus = _core_slugs(), _bonus_slugs()
     out = []
     if sdir.is_dir():
         for d in sorted(x for x in sdir.glob("*") if x.is_dir()):
             nome, desc = gm._ler_fm(d / "SKILL.md") if (d / "SKILL.md").exists() else ("", "")
             out.append({"slug": d.name, "nome": nome or d.name, "desc": desc,
-                        "cmd": "/" + d.name, "obrigatoria": d.name == "extrair-design-system",
+                        "cmd": "/" + d.name, "obrigatoria": d.name in core,
                         "bonus": d.name in bonus})
     return out
 

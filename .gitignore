@@ -12,11 +12,27 @@
 !/contexto/referencia/
 /contexto/referencia/*
 !/contexto/referencia/README.md
+# dados/ é a planilha do comprador: faturamento, folha, cliente com nome e CPF.
+# NUNCA versiona. A pasta vem no template só com o README que explica o que jogar
+# ali, e todo o resto é ignorado. Esta regra nasce junto com a pasta de propósito:
+# se ela entrar depois, a primeira planilha já vazou pro GitHub de quem publicar o
+# repo (e o público deste produto publica, porque a gente ensina GitHub).
+/dados/*
+!/dados/README.md
 /producao/
 /meu-os.json
 /.genesis-atividade.jsonl
 /.genesis-canvas-layout.json
 /.genesis-tasks.json
+
+# CREDENCIAL. A skill /conectar escreve a chave das ferramentas do comprador aqui, e
+# ela é da conta DELE (ou da empresa dele). Sem esta regra, a primeira integração que
+# ele fizer vira um segredo desprotegido no repositório, e este público publica repo no
+# GitHub porque a gente ensina GitHub. Cobre .env na raiz e em qualquer subpasta.
+.env
+.env.*
+!.env.example
+**/.env
 
 # python
 __pycache__/

@@ -1066,7 +1066,24 @@ def _claude_md(reco, base):
           "## Como meu OS trabalha", "",
           "- Português do Brasil, direto e honesto. Nunca invente número ou dado que você não tem.",
           "- As entregas do time caem em `producao/`.",
-          "- Consistência visual é inegociável: todo entregável visual passa pelo agente `design-system`.", ""]
+          "- Consistência visual é inegociável: todo entregável visual passa pelo agente `design-system`."]
+
+    # Roteamento EXPLÍCITO pras skills core. Listar a skill acima não basta: medido em
+    # 21/07/2026, com a skill instalada e descoberta, o modelo respondeu a "quanto a gente
+    # faturou em 2025?" escrevendo o próprio script do zero, sem nunca abrir a SKILL.md.
+    # E script do zero é exatamente o que erra 3x em planilha com subtotal. Regra no
+    # CLAUDE.md pega porque este arquivo entra em contexto em TODA sessão.
+    # Condicional ao arquivo existir no disco: este CLAUDE.md nunca promete o que não há.
+    if (skills_dir / "analisar" / "SKILL.md").exists():
+        L += ["- **Pergunta sobre planilha ou dado (`dados/`, `.xlsx`, `.csv`): INVOQUE a skill `analisar`.**",
+              "  Invoque a skill de verdade, não reimplemente o que ela faz. Ela roda um profiler",
+              "  determinístico que lê 100% das linhas e é coberto por teste de regressão. Script",
+              "  escrito na hora não tem essa garantia, mesmo quando parece dar certo."]
+    if (skills_dir / "conectar" / "SKILL.md").exists():
+        L += ["- **Conectar ferramenta ou sistema externo: INVOQUE a skill `conectar`.**",
+              "  Invoque a skill de verdade. Ela carrega o procedimento e o catálogo de receitas",
+              "  verificadas, que você não tem como reproduzir de memória sem inventar endpoint."]
+    L += [""]
     return "\n".join(L)
 
 
