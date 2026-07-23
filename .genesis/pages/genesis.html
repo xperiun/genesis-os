@@ -394,8 +394,10 @@
       <div class="entendi"><div class="eh">O que eu entendi de você</div><ul id="rev-entendi"></ul></div>
       <div class="lbl">Seu time recomendado</div>
       <div class="times" id="rev-times"></div>
-      <div class="lbl">Skills pra criar (sob medida)</div>
+      <div class="lbl" id="rev-skills-lbl" hidden>Skills pra criar (sob medida)</div>
       <div id="rev-skills"></div>
+      <div class="lbl bonus-lbl" id="rev-core-lbl" hidden>Skills do seu OS <span class="bonus-note">· já vêm prontas</span></div>
+      <div id="rev-core"></div>
       <div class="lbl bonus-lbl" id="rev-bonus-lbl" hidden>Skills bônus <span class="bonus-note">· já vêm prontas, de brinde</span></div>
       <div id="rev-bonus"></div>
     </section>
@@ -652,6 +654,20 @@ const BONUS_SKILLS=[
   {ic:'🎬',slug:'site-reveal-cinematico',cmd:'/site-reveal-cinematico',desc:'Cria um site onde <b>cada rolagem avança um frame de um vídeo</b> (estilo Apple product reveal). Ótimo pra portfólio: um site premium pra mostrar seus dashboards e projetos.'},
 ];
 
+// ---------- skills CORE (as ferramentas do OS, já vêm prontas — badge "do OS") ----------
+// Fonte canônica: .genesis/core-skills.json. NÃO são "sob medida" (o Genesis não escreve elas
+// na entrevista): vêm no template e o instalar() copia pra .claude/skills/. Por isso aparecem
+// num bloco próprio, "já vêm prontas", nunca misturadas no time sob medida. Os slugs aqui também
+// servem pra FILTRAR qualquer core que o motor injete em r.skills (ex: extrair-design-system via
+// _garantir_ds), pra ela não vazar pra lista sob medida. Mantenha em sincronia com o JSON.
+const CORE_SKILLS=[
+  {ic:'🔌',slug:'conectar',cmd:'/conectar',desc:'Liga o seu OS às ferramentas que você já usa (CRM, ERP, planilha na nuvem, anúncios). Só declara sucesso quando uma chamada real devolve <b>dado real</b>.'},
+  {ic:'🔍',slug:'analisar',cmd:'/analisar',desc:'<b>Audita a planilha antes de responder</b> qualquer pergunta sobre ela: mostra as armadilhas (subtotal no meio dos dados, data ambígua, dado pessoal) e reconcilia o resultado contra o próprio arquivo.'},
+  {ic:'🎨',slug:'extrair-design-system',cmd:'/extrair-design-system',desc:'Extrai o design system de uma referência (HTML, URL, print) e gera o <b>DS do seu OS</b>. É a ferramenta do seu Guardião Visual.'},
+  {ic:'🖥️',slug:'apresentar',cmd:'/apresentar',desc:'Transforma um assunto em <b>apresentação widescreen</b> que abre no navegador e exporta PDF, com a cara da sua marca. Número que vira destaque passa pela conferência antes.'},
+];
+const CORE_SLUGS=new Set(CORE_SKILLS.map(s=>s.slug));
+
 // ---------- estado ----------
 let historico=[], passoN=0, recomendacao=null;
 // a fila do recrutamento ({ic,nome,papel}): memória anti-duplicata (os nomes voltam pro
@@ -824,14 +840,22 @@ function irReveal(){
     return `<div class="time" style="--cor:${corIdx(i)}"><div class="tt"><div class="ic">${esc(a.ic||'•')}</div><div class="ti"><h3>${esc(a.nome)}</h3><div class="tr">especialista sob medida</div></div><div class="tag">${esc(a.tag||'agente')}</div></div>
       <div class="por"><b>Por que:</b> ${rich(a.por||'')}</div></div>`;
   }).join('');
-  $('#rev-skills').innerHTML=(r.skills||[]).map(s=>`<div class="skill"><div class="si">${esc(s.ic||'⚡')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  // sob medida = só o que a entrevista inventou. Qualquer CORE que o motor tenha injetado
+  // (ex: extrair-design-system) sai daqui e vai pro bloco "do seu OS".
+  const sob=(r.skills||[]).filter(s=>!CORE_SLUGS.has(s.slug));
+  $('#rev-skills-lbl').hidden = !sob.length;
+  $('#rev-skills').innerHTML=sob.map(s=>`<div class="skill"><div class="si">${esc(s.ic||'⚡')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}</h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  if(CORE_SKILLS.length){
+    $('#rev-core-lbl').hidden=false;
+    $('#rev-core').innerHTML=CORE_SKILLS.map(s=>`<div class="skill bonus"><div class="si">${esc(s.ic||'⚡')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}<span class="tag-bonus">do OS</span></h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
+  }
   if(BONUS_SKILLS.length){
     $('#rev-bonus-lbl').hidden=false;
     $('#rev-bonus').innerHTML=BONUS_SKILLS.map(s=>`<div class="skill bonus"><div class="si">${esc(s.ic||'🎁')}</div><div style="flex:1"><h4>${esc(s.cmd||('/'+s.slug))}<span class="tag-bonus">bônus</span></h4><p>${rich(s.desc||'')}</p></div></div>`).join('');
   }
   const n=r.nums||{}; $('#rev-nums').innerHTML=`
     <div class="num a"><span class="v">${n.agentes??(r.agentes||[]).length}</span><span class="l">especialistas no seu time</span></div>
-    <div class="num c"><span class="v">${n.skills??(r.skills||[]).length}</span><span class="l">skills sob medida</span></div>`;
+    <div class="num c"><span class="v">${sob.length}</span><span class="l">skills sob medida</span></div>`;
   $('#rev-fonte').innerHTML=`Conecte <b>${esc((r.fonte||{}).titulo||'sua realidade')}</b>.`;
   $('#rev-fonte-sub').textContent=(r.fonte||{}).sub||'';
   window.scrollTo(0,0);

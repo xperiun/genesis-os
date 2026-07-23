@@ -6,6 +6,7 @@ comprador encostar em pip nem em terminal.
 
     python .genesis/sobe.py
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -32,8 +33,13 @@ def main():
     if faltando:
         print("Preparando o ambiente (uma vez só):", ", ".join(faltando))
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *faltando], check=False)
+    # rota que o navegador abre no boot, passada pelo comando que chamou (o /setup manda
+    # /montar pra forçar a cena; o /painel manda /painel; sem arg, `/` decide pelo estado).
+    env = dict(os.environ)
+    if len(sys.argv) > 1 and sys.argv[1].strip():
+        env["GENESIS_ABRIR"] = sys.argv[1].strip()
     # o servidor enxuto herda o cwd (a raiz do repo) como base: o OS nasce aqui.
-    subprocess.run([sys.executable, str(AQUI / "servidor_genesis.py")])
+    subprocess.run([sys.executable, str(AQUI / "servidor_genesis.py")], env=env)
 
 
 if __name__ == "__main__":

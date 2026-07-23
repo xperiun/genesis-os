@@ -77,11 +77,13 @@ Regras deste passo:
 Rode em segundo plano (background):
 
 ```
-python .genesis/sobe.py
+python .genesis/sobe.py montar
 ```
 
-Isso prepara o ambiente (só na primeira vez) e abre o Genesis no navegador, em
-`http://localhost:7799`.
+Isso prepara o ambiente (só na primeira vez) e abre a cena do Genesis no navegador, em
+`http://localhost:7799/montar`. O `montar` (sem barra de propósito: barra na frente é manglada
+pelo Git Bash no Windows) força a entrevista mesmo num OS já montado (é o caminho de remontar);
+o `/` sozinho mandaria pro painel quando já existe time.
 
 > **Regra dura: `sobe.py` é o entrypoint oficial, não improvise em cima dele.** Ele existe
 > pra instalar as dependências (flask, sdk) e só então subir `servidor_genesis.py` com o cwd

@@ -129,6 +129,12 @@ REGRAS DE HONESTIDADE (invioláveis):
 - Skills são automações NOVAS a criar; descreva o payoff concreto.
 - Sobre dado: se a pessoa TEM fonte, o "fonte" reflete isso; se NÃO tem, oriente a
   começar simples (uma planilha, um objetivo) sem prometer número que ela não tem.
+- O "fonte" é uma fonte de dados REAL e VIVA do mundo dela (uma planilha de vendas, um
+  export do CRM/ERP, uma conta de anúncios, uma base que ATUALIZA). NUNCA é um nome de
+  arquivo (`empresa.md`, `posicionamento.md`, qualquer `.md`/`.txt`/`.csv` do dossiê que
+  você leu): esses são o material que a pessoa te deu pra você entender quem ela é, NÃO a
+  fonte que ela conecta. Se você não identificou uma fonte viva clara, o "titulo" é genérico
+  e humano ("sua planilha de vendas", "seus números do mês"), nunca um filename.
 - Nunca invente resultado, venda ou métrica.
 - OBRIGATÓRIO: o time SEMPRE inclui um agente de Design System (slug design-system), que
   extrai o design system de uma referência e cria/mantém o do OS. Consistência visual é
@@ -153,7 +159,17 @@ Pra montar o time no fim:
   "fonte":{"titulo":"<a fonte/realidade a conectar>","sub":"<1-2 frases orientando>"}
 }}
 
-Recomende de 3 a 5 agentes e 2 a 4 skills. Priorize o que resolve a dor principal dela."""
+Recomende de 3 a 5 agentes e 2 a 4 skills. Priorize o que resolve a dor principal dela.
+
+REGRA DURA anti-sobreposição (o erro mais comum, não repita): cada agente é um papel
+DISTINTO, com trabalho próprio que os outros não fazem. NÃO fragmente uma única função em
+vários agentes que se sobrepõem. "Arquiteto de Pauta", "Roteirista", "Engenheiro de Hook" e
+"Repurposador de Conteúdo" são facetas de UM trabalho só (criar conteúdo): isso é UM agente,
+não quatro. Antes de fechar a lista, olhe par a par: se dois agentes dividiriam o mesmo
+arquivo/entregável na prática, funda num só, mais denso. Prefira SEMPRE menos agentes fortes a
+mais agentes rasos. Com pouco sinal (entrevista curta ou dossiê magro), monte ENXUTO (3-4),
+nunca encha de papéis plausíveis pra parecer robusto: time inchado com sobreposição é pior
+que time enxuto e nítido, e a pessoa percebe na hora."""
 
 
 _FALLBACK_PERGUNTAS = [
@@ -317,6 +333,7 @@ def _normalizar(obj, historico):
         r.setdefault("agentes", [])
         r.setdefault("skills", [])
         r.setdefault("fonte", {"titulo": "sua realidade", "sub": ""})
+        _sanear_fonte(r)  # o titulo/sub da fonte nunca pode ser um nome de arquivo do dossiê
         for a in r["agentes"]:  # garante slug estável em cada agente
             if isinstance(a, dict):
                 a["slug"] = _slug(a.get("slug") or a.get("nome"))
@@ -678,6 +695,28 @@ def _slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-") or "agente"
 
 
+_RE_ARQUIVO_FONTE = re.compile(r"[\w\-./]+\.(?:md|txt|csv|xlsx?|json|pdf|docx?)\b", re.I)
+
+
+def _sanear_fonte(reco):
+    """A 'fonte a conectar' é uma fonte de dados VIVA do mundo do comprador (planilha, CRM,
+    export que atualiza), NUNCA um nome de arquivo. O modelo às vezes chuta um filename do
+    dossiê que leu (`empresa.md`, `posicionamento.md`): isso é o MATERIAL de contexto, não a
+    fonte, e o comprador não sabe o que é `posicionamento.md`. Se o titulo cita arquivo, cai
+    num genérico humano; se só o sub cita, tira a menção sem reescrever tudo. Defensivo: o
+    prompt já proíbe, mas prompt vaza, então o filename nunca chega ao fonte.md nem ao card."""
+    f = reco.get("fonte")
+    if not isinstance(f, dict):
+        return reco
+    if _RE_ARQUIVO_FONTE.search(str(f.get("titulo") or "")):
+        f["titulo"] = "sua fonte de dados"
+        f["sub"] = ("Conecte uma fonte viva do seu dia a dia (planilha de vendas, export do "
+                    "CRM ou ERP, conta de anúncios) pro seu time trabalhar com número real.")
+    elif f.get("sub"):
+        f["sub"] = _RE_ARQUIVO_FONTE.sub("sua fonte", str(f["sub"]))
+    return reco
+
+
 def _garantir_ds(reco):
     """Enforce: todo OS SEMPRE tem o Guardião Visual (agente slug design-system) E a skill
     /extrair-design-system, os dois obrigatórios (founder). Injeta o que faltar e recalcula.
@@ -688,12 +727,11 @@ def _garantir_ds(reco):
         ags.append({"slug": "design-system", "nome": "Guardião Visual", "ic": "🎨",
                     "tag": "Obrigatório",
                     "por": "Todo OS precisa de consistência visual. Ele <b>extrai</b> o design system de uma referência e <b>cria/mantém</b> o seu, pra todo entregável sair coeso."})
+    # a skill /extrair-design-system é CORE (vem pronta, copiada pelo instalar() e exibida no
+    # bloco "do seu OS" do reveal), então NÃO é injetada aqui: injetar punha ela na lista
+    # "sob medida", mislabelando uma ferramenta fixa como se a entrevista tivesse escrito. O
+    # agente Guardião Visual (acima) continua obrigatório; a skill dele mora nas CORE.
     sks = reco.setdefault("skills", [])
-    if not any(_slug(s.get("slug") or s.get("cmd") or s.get("nome")) == "extrair-design-system"
-               for s in sks if isinstance(s, dict)):
-        sks.append({"slug": "extrair-design-system", "nome": "Extrair design system",
-                    "ic": "🎨", "cmd": "/extrair-design-system",
-                    "desc": "Extrai o design system de uma referência (HTML, URL, print) e gera o DS do seu OS."})
     nums = reco.setdefault("nums", {})
     nums["agentes"] = len(ags)
     nums["skills"] = len(sks)
@@ -1141,6 +1179,7 @@ def instalar(reco, base, modelo=None):
     Devolve {caminho, sob_medida, motivo, aviso}: `sob_medida=False` quer dizer que o time
     sob medida NÃO foi escrito e o que está no disco é esboço."""
     from pathlib import Path as _P
+    _sanear_fonte(reco)  # defensivo: nenhum filename do dossiê vaza pro fonte.md/card/CLAUDE.md
     base = _P(base)
     _mlog_reset()
     _mlog("Organizando o time e preparando o repositório...")

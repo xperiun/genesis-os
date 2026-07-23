@@ -18,7 +18,7 @@ import webbrowser
 from pathlib import Path
 from threading import Lock, Thread, Timer
 
-from flask import Flask, Response, jsonify, request, send_file
+from flask import Flask, Response, jsonify, redirect, request, send_file
 
 AQUI = Path(__file__).resolve().parent
 PAGES = AQUI / "pages"  # os HTML das views moram em .genesis/pages/ (reorg 2026-07-10)
@@ -99,8 +99,25 @@ def _pagina(nome):
     return Response(html.replace("<head>", "<head>" + shim, 1), mimetype="text/html")
 
 
+def _os_montado():
+    """True se o OS já foi montado (tem agentes em .claude/agents/). É o que decide se o `/`
+    manda pra cena (entrevista) ou direto pro painel: quem já montou não quer re-entrevistar."""
+    return any((BASE / ".claude" / "agents").glob("*.md"))
+
+
 @app.get("/")
 def home():
+    # OS montado -> painel direto (reabrir o localhost não pode cair na entrevista de novo).
+    # Ainda não montado -> a cena. Pra FORÇAR a cena num OS já montado (remontar), use /montar.
+    if _os_montado():
+        return redirect("/painel", code=302)
+    return _pagina("genesis.html")
+
+
+@app.get("/montar")
+def montar():
+    """A cena (entrevista/reveal/montagem) SEMPRE, mesmo com OS já montado. É por aqui que o
+    /setup entra, pra remontar não ser sequestrado pelo redirect do `/`."""
     return _pagina("genesis.html")
 
 
@@ -452,7 +469,12 @@ def status():
 
 
 if __name__ == "__main__":
-    print(f"Genesis Studio no ar: http://localhost:{PORTA}/")
+    # que rota o navegador abre no boot. Default `/` (a home decide cena vs painel pelo estado
+    # do OS). O /setup força `/montar` (cena sempre) e o /painel força `/painel`, via sobe.py.
+    abrir = os.environ.get("GENESIS_ABRIR", "/")
+    if not abrir.startswith("/"):
+        abrir = "/" + abrir
+    print(f"Genesis Studio no ar: http://localhost:{PORTA}{abrir}")
     print(f"O seu OS vai nascer em: {BASE}")
-    Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORTA}/")).start()
+    Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORTA}{abrir}")).start()
     app.run(host="127.0.0.1", port=PORTA, debug=False)

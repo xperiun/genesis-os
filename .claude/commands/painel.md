@@ -27,15 +27,19 @@ e pare:
 Rode em segundo plano (background):
 
 ```
-python .genesis/sobe.py
+python .genesis/sobe.py painel
 ```
 
-O servidor sobe em `http://localhost:7799`. A cena do `/setup` abre na home, então mande o
-usuário direto pro painel:
+O servidor sobe em `http://localhost:7799` e já abre direto no painel. (O `painel` vai sem
+barra de propósito: barra na frente é manglada pelo Git Bash no Windows; o servidor
+normaliza.) Passe o endereço pro
+usuário:
 
 **http://localhost:7799/painel**
 
 Se o servidor já estiver no ar (a porta 7799 responde), não suba outro: só passe o endereço.
+Com o OS montado, o `/` também redireciona pro painel, então qualquer aba que caia na home
+vai parar no lugar certo.
 
 ## 3. Falar uma linha e sair da frente
 
