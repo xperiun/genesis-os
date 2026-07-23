@@ -1166,6 +1166,27 @@ def _claude_md(reco, base):
           "- O dado de entrada vem de `contexto/dados/` (planilhas) e `contexto/referencia/` (docs do negócio).",
           "- Consistência visual é inegociável: todo entregável visual passa pelo agente `design-system`."]
 
+    # FERRAMENTAS JÁ CONECTADAS. Sem esta seção o OS fica honesto porém CEGO: com o GA4
+    # ligado (cliente em scripts/lib/ga4.py + credencial no .env), a pergunta "quantas visitas
+    # tivemos nos últimos 7 dias?" era respondida com "não tenho essa fonte e não vou chutar".
+    # Recusa correta em espírito, ERRADA no fato, e obrigava o dono a apontar o caminho do
+    # script na mão. O modelo procura dado em `contexto/` e nunca pensa em `scripts/lib/`.
+    # Listada só com o que EXISTE no disco: este CLAUDE.md nunca promete conexão que não há.
+    libdir = base / "scripts" / "lib"
+    clientes = sorted(p.stem for p in libdir.glob("*.py")
+                      if p.is_file() and not p.stem.startswith("_")) if libdir.is_dir() else []
+    if clientes:
+        L += ["", "## Minhas conexões (o que já está ligado)", "",
+              "Estas ferramentas JÁ estão conectadas. O cliente fica em `scripts/lib/<nome>.py` "
+              "e a credencial no `.env` (fora do Git).", ""]
+        L += [f"- `{c}`: cliente pronto em `scripts/lib/{c}.py`" for c in clientes]
+        L += ["",
+              "- **Pergunta sobre dado dessas ferramentas: RODE o cliente correspondente.** "
+              "Não responda que a fonte não existe sem antes olhar aqui, e não peça pro dono "
+              "apontar o caminho: ele já está escrito acima.",
+              "- Se o cliente falhar (credencial expirada, erro de rede), diga o erro real. "
+              "Aí sim vale dizer que não dá pra responder agora, e por quê."]
+
     # Roteamento EXPLÍCITO pras skills core. Listar a skill acima não basta: medido em
     # 21/07/2026, com a skill instalada e descoberta, o modelo respondeu a "quanto a gente
     # faturou em 2025?" escrevendo o próprio script do zero, sem nunca abrir a SKILL.md.

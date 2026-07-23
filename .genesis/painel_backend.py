@@ -552,6 +552,47 @@ def skills(base):
     return out
 
 
+def _ferramentas_conectadas(base):
+    """As ferramentas que a /conectar ligou de verdade.
+
+    Ela deixa DOIS rastros no disco: o cliente em `scripts/lib/<nome>.py` e a credencial no
+    `.env`. O painel casa o par e lista. NUNCA lê o VALOR do segredo, só o NOME da variável,
+    o suficiente pra dizer que ela existe.
+
+    Sem isto o Integrações escondia conexão real: o GA4 ficava ligado, provado por chamada
+    de verdade, e a aba mostrava só as caixas fixas, como se nada tivesse sido conectado.
+    Esconder conexão que existe é o mesmo pecado de mostrar conexão que não existe."""
+    lib = Path(base) / "scripts" / "lib"
+    if not lib.is_dir():
+        return []
+    chaves = set()
+    env = Path(base) / ".env"
+    if env.exists():
+        try:
+            for linha in env.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
+                linha = linha.strip()
+                if "=" in linha and not linha.startswith("#"):
+                    chaves.add(linha.split("=", 1)[0].strip().upper())
+        except OSError:
+            pass
+    out = []
+    for f in sorted(lib.glob("*.py")):
+        if f.stem.startswith("_"):
+            continue
+        n = f.stem
+        tem_cred = any(n.upper() in k for k in chaves)
+        out.append({
+            "chave": "tool:" + n, "ic": "🔗", "ok": tem_cred, "pendente": not tem_cred,
+            "nome": n.upper() if len(n) <= 4 else n.replace("_", " ").capitalize(),
+            "sub": (f"Cliente em scripts/lib/{n}.py, credencial no .env (fora do Git). A prova "
+                    "foi feita na hora de conectar: o painel não refaz a chamada sozinho."
+                    if tem_cred else
+                    f"Cliente em scripts/lib/{n}.py, mas não achei a credencial no .env. "
+                    "Rode /conectar pra completar."),
+        })
+    return out
+
+
 def integracoes(base):
     """Status das conexões do OS: o cérebro (Claude Code na assinatura do comprador), a
     fonte de dados dele, o knowledge base e o time. Nunca expõe segredo, só ok/faltando."""
@@ -598,6 +639,7 @@ def integracoes(base):
         {"chave": "knowledge", "ic": "📚", "ok": ndocs > 0,
          "nome": f"Knowledge base ({ndocs} doc" + ("s" if ndocs != 1 else "") + ")",
          "sub": "Os documentos do seu negócio em contexto/referencia/. O time e o chat usam como verdade."},
+        *_ferramentas_conectadas(base),   # o que a /conectar ligou (cliente + credencial)
         {"chave": "time", "ic": "❖", "ok": nag > 0, "nome": f"{nag} agentes · {nsk} skills",
          "sub": "Seu time montado pelo Genesis, invocável de verdade no Claude Code."},
     ]}

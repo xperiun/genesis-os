@@ -47,8 +47,17 @@ O deck precisa de uma cara, e ela não se inventa na hora.
 
 **Ordem de preferência, nesta ordem:**
 
-1. **O DS da pessoa.** Se existe resultado de `/extrair-design-system` no repo (procure em `producao/`), use ele. É a identidade real da marca dela, tirada do site dela. Deck com a cara da própria empresa vale mais que deck bonito genérico.
-2. **Rodar o `/extrair-design-system` agora**, se ela tem site e ainda não rodou. São poucos minutos e o resultado serve pra todo deck futuro, não só pra este.
+1. **O DS da pessoa.** Procure **`contexto/design-system.html`** (o DS mestre do OS, que é onde
+   a `/extrair-design-system` grava). Se não estiver lá, olhe a biblioteca de referências em
+   **`contexto/design/refs/<slug>/design-system.html`** e use a mais recente. É a identidade
+   real da marca dela, tirada do site dela. Deck com a cara da própria empresa vale mais que
+   deck bonito genérico.
+   *(Não procure em `producao/`: ali ficam os entregáveis, não o DS. Este caminho já esteve
+   errado aqui e o efeito era silencioso, o deck saía no sóbrio de reserva e ninguém entendia
+   por que a marca não aparecia.)*
+2. **Rodar o `/extrair-design-system` agora**, se ela tem site e ainda não rodou. Leva alguns
+   minutos (a extração lê o site inteiro e baixa os assets), e o resultado serve pra todo deck
+   futuro, não só pra este. Se a pessoa estiver com pressa, avise do tempo antes de começar.
 3. **O sóbrio de reserva** em [referencias/ds-sobrio.md](./referencias/ds-sobrio.md). Tokens prontos pra colar. Use quando não houver marca, quando o deck for interno, ou quando a neutralidade for proposital.
 
 **Nunca invente uma paleta.** Não escolha cor por gosto, não improvise fonte. Ou vem do DS dela, ou vem do sóbrio. Essas são as duas opções.

@@ -93,6 +93,42 @@ def _linha_de_agregacao(linha):
     return None
 
 
+def _tem_numero(linha):
+    """A linha carrega algum valor numérico (nativo ou em texto)?"""
+    for c in linha:
+        if isinstance(c, bool):
+            continue
+        if isinstance(c, (int, float)):
+            return True
+        if isinstance(c, str) and c.strip():
+            if (_num_br(c) is not None or _num_us(c) is not None
+                    or _num_simples(c) is not None):
+                return True
+    return False
+
+
+def _agregacao_sem_rotulo(linha, largura_tipica):
+    """Linha com CARA de agregação, mas sem palavra que a marque.
+
+    O `_linha_de_agregacao` acha por PALAVRA (total, subtotal, soma, saldo...), que é o
+    vocabulário que ERP brasileiro escreve. Quando o subtotal vem SEM rótulo (só negrito, ou
+    "Acum.", ou a célula do rótulo em branco), ele passava batido e entrava na soma sem
+    ninguém ver, que é exatamente a classe de erro que esta skill existe pra matar.
+
+    O sinal estrutural: a linha preenche bem MENOS colunas que o corpo (subtotal costuma ser
+    rótulo + valor, o resto vazio) e mesmo assim carrega número.
+
+    É SUSPEITA, não veredito. Por isso ela só vira ARMADILHA REPORTADA e **não** é excluída
+    do cálculo por conta própria: descartar uma linha boa por engano SUBESTIMA o total, que é
+    tão errado quanto somar subtotal, e erra pro lado que a reconciliação não pega (o valor
+    some sem deixar rastro pra conferir). Quem decide é o passe 2, agora sabendo que existe.
+    """
+    if largura_tipica < 3:
+        return False
+    p = _preenchidas(linha)
+    return 0 < p <= max(2, largura_tipica // 3) and _tem_numero(linha)
+
+
 def _num_br(s):
     """1.234,56 -> 1234.56. Só aceita se o padrão for inequivocamente BR."""
     s = s.strip()
@@ -407,6 +443,19 @@ def perfilar(caminho, aba_pedida=None):
 
     limpas = [l for l in corpo_util if not _linha_de_agregacao(l)]
 
+    # Agregação SEM rótulo: o subtotal que não escreveu "total" e por isso escapou do
+    # MARCADOR. Continua DENTRO de `limpas` (não removo por suspeita, ver
+    # `_agregacao_sem_rotulo`), mas vira armadilha reportada pro passe 2 decidir.
+    _cont = [_preenchidas(l) for l in limpas]
+    largura_tipica = max(set(_cont), key=_cont.count) if _cont else 0
+    suspeitas_agregacao = [
+        {"posicao_no_corpo": k,
+         "preenchidas": _preenchidas(linha),
+         "conteudo": [("" if _vazio(c) else str(c)) for c in linha][:8]}
+        for k, linha in enumerate(limpas)
+        if _agregacao_sem_rotulo(linha, largura_tipica)
+    ]
+
     colunas = []
     for j, nome in enumerate(nomes):
         valores_limpos = [l[j] if j < len(l) else None for l in limpas]
@@ -481,16 +530,18 @@ def perfilar(caminho, aba_pedida=None):
         },
         "agregacoes": agregacoes[:TETO_MARCADORES_LISTADOS],
         "agregacoes_omitidas": max(0, len(agregacoes) - TETO_MARCADORES_LISTADOS),
+        "agregacoes_sem_rotulo": suspeitas_agregacao[:TETO_MARCADORES_LISTADOS],
         "merges": merges_relevantes[:TETO_MARCADORES_LISTADOS],
         "merges_total": len(merges_relevantes),
         "merges_decorativos": merges_decorativos,
         "colunas": colunas,
         "amostra": amostra,
-        "armadilhas": _armadilhas(merges_relevantes, colunas, agregacoes, confianca, vazias_no_meio),
+        "armadilhas": _armadilhas(merges_relevantes, colunas, agregacoes, confianca,
+                                  vazias_no_meio, suspeitas_agregacao),
     }
 
 
-def _armadilhas(merges, colunas, agregacoes, confianca_cab, vazias):
+def _armadilhas(merges, colunas, agregacoes, confianca_cab, vazias, sem_rotulo=()):
     """Veredito priorizado. P0 = produz número errado sem avisar."""
     achados = []
 
@@ -499,6 +550,15 @@ def _armadilhas(merges, colunas, agregacoes, confianca_cab, vazias):
                         f"{len(agregacoes)} linha(s) de TOTAL/SUBTOTAL no meio dos dados. "
                         f"Somar junto infla o resultado (medido: 3x). Exclua do cálculo e "
                         f"depois use o TOTAL GERAL pra CONFERIR o seu número."))
+
+    if sem_rotulo:
+        achados.append(("P0", "agregacao_sem_rotulo",
+                        f"{len(sem_rotulo)} linha(s) com CARA de agregação mas SEM rótulo "
+                        f"(preenchem poucas colunas e carregam número, porém não dizem "
+                        f"'total'/'subtotal'). Elas CONTINUAM no cálculo: não removi por "
+                        f"suspeita, porque descartar linha boa subestima o total e some sem "
+                        f"deixar rastro. OLHE as linhas listadas em `agregacoes_sem_rotulo` "
+                        f"e decida. Se forem subtotal, exclua e reconcilie."))
 
     if merges:
         achados.append(("P0", "merge",
