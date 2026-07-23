@@ -546,12 +546,12 @@ $('#ch-build').onclick=async()=>{
 setTimeout(()=>{const d=$('#dica');if(d)d.style.opacity='0';},6000);
 
 // ---------- dado ----------
-const MOCK={perfil:{nome:'Analista de dados, dashboards Power BI'},ativo:true,
+const MOCK={perfil:{nome:'Coordenador comercial, indústria média'},ativo:true,
   agentes:[
-    {slug:'desbloqueador-de-dados',nome:'Desbloqueador de Dados',ic:'🔓',desc:'Cria views no banco pra você sair da fila da engenharia.',live:true,fazendo:'montando a view do financeiro'},
-    {slug:'arquiteto-power-bi',nome:'Arquiteto Power BI',ic:'📊',desc:'Modelagem estrela e DAX pro dashboard financeiro.',live:false},
-    {slug:'tradutor-de-negocio',nome:'Tradutor de Negócio',ic:'🗺️',desc:'Traduz o pedido da área em requisito claro, pra você não refazer.',live:false},
-    {slug:'design-system',nome:'Guardião Visual',ic:'🎨',desc:'Mantém todo dashboard visualmente coeso.',live:false},
+    {slug:'analista-comercial',nome:'Analista Comercial',ic:'📊',desc:'Lê o faturamento por região e aponta o que saiu da curva.',live:true,fazendo:'fechando o faturamento de dezembro'},
+    {slug:'controller',nome:'Controller',ic:'🧮',desc:'Cuida da margem e do fechamento do mês, e pega a distorção cedo.',live:false},
+    {slug:'tradutor-de-negocio',nome:'Tradutor de Negócio',ic:'🗺️',desc:'Traduz a pergunta da diretoria em análise, pra você chegar com resposta.',live:false},
+    {slug:'design-system',nome:'Guardião Visual',ic:'🎨',desc:'Mantém todo relatório e apresentação visualmente coeso.',live:false},
   ]};
 async function puxar(primeira){
   let d=null;

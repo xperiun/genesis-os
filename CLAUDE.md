@@ -47,7 +47,7 @@ No fim, seu OS nasce aqui no repo:
 
 - `.claude/agents/` — os seus especialistas, como subagents reais e invocáveis
 - `.claude/skills/` — as suas automações sob medida
-- `contexto/` — quem você é (o que faz o time te entender) e a fonte a conectar
+- `contexto/` — quem você é. Docs do negócio em `contexto/referencia/`, suas planilhas em `contexto/dados/`
 - `CLAUDE.md` — passa a ser o "cérebro" do seu OS (substitui este arquivo)
 - `producao/` — onde as entregas do time caem
 

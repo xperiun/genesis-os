@@ -148,12 +148,15 @@ const MOCK_CTX=[
   {rel:'contexto/perfil.md',nome:'perfil.md',pasta:'contexto',kb:0.1,editavel:true},
   {rel:'contexto/fonte.md',nome:'fonte.md',pasta:'contexto',kb:0.1,editavel:true},
   {rel:'contexto/referencia/negocio.md',nome:'negocio.md',pasta:'contexto/referencia',kb:0.4,editavel:true},
+  // só o README: a cena mostra ONDE a planilha entra, sem fingir que já entrou (o integrações
+  // do demo mostra a fonte como "a conectar", e um .xlsx aqui tornaria a fonte "conectada").
+  {rel:'contexto/dados/README.md',nome:'README.md',pasta:'contexto/dados',kb:1.7,editavel:false},
 ];
 const MOCK_CONT={
-  'CLAUDE.md':'# Meu OS\n\nSistema operacional pessoal montado pelo Genesis. Analista de dados, dashboards Power BI.\n\n## Meu time\n- arquiteto-power-bi, desbloqueador-de-dados, tradutor-de-negocio, design-system\n',
-  'contexto/perfil.md':'# Quem sou eu\n\n- Analista de dados numa empresa média\n- Monta dashboards em Power BI\n- Trava na fila da engenharia pra liberar dado\n',
-  'contexto/fonte.md':'# Minha fonte de dados\n\n**Banco SQL da empresa** (42 lojas, Oracle).\n',
-  'contexto/referencia/negocio.md':'# O negócio\n\nRede de farmácias, 42 lojas no interior de SP. Faturamento anual ~R$ 180 milhões. O dashboard financeiro cobra margem por loja, ruptura de estoque e ticket médio.\n',
+  'CLAUDE.md':'# Meu OS\n\nSistema operacional pessoal montado pelo Genesis. Coordenador comercial numa indústria de médio porte.\n\n## Meu time\n- analista-comercial, controller, tradutor-de-negocio, design-system\n',
+  'contexto/perfil.md':'# Quem sou eu\n\n- Coordenador comercial numa indústria de médio porte\n- Decide por região, produto e vendedor\n- Recebe o faturamento em planilha e não confia no número\n',
+  'contexto/fonte.md':'# Minha fonte de dados\n\n**Relatório gerencial de faturamento**: o export mensal do ERP, em planilha, com subtotal por região.\n',
+  'contexto/referencia/negocio.md':'# O negócio\n\nIndústria Campo Novo, fabricante de médio porte que vende em cinco regiões do país (Sudeste, Sul, Nordeste, Centro-Oeste, Norte), nas linhas Alfa, Beta, Gama e Delta. Faturamento 2025 ~R$ 10 milhões. A diretoria comercial cobra faturamento e margem por região, produto e vendedor.\n',
 };
 
 // Markdown: online usa o marked (GFM completo: fence, tabela, lista aninhada);

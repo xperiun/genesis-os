@@ -141,7 +141,9 @@
 
 <div id="kpis">
   <div class="kpi destaque warm"><div class="lab"><span class="tick"></span>especialistas no time</div><div class="n" id="k-ag">0</div><div class="under"></div><div class="r">o seu time montado</div></div>
-  <div class="kpi"><div class="lab"><span class="tick"></span>skills sob medida</div><div class="n" id="k-sk">0</div><div class="under"></div><div class="r">automações do seu OS</div></div>
+  <!-- o número conta TODAS as pastas de .claude/skills/ (sob medida + core + bônus), então o
+       rótulo não pode dizer "sob medida": a maioria não é. Mesmo acerto já feito no catálogo. -->
+  <div class="kpi"><div class="lab"><span class="tick"></span>skills no seu OS</div><div class="n" id="k-sk">0</div><div class="under"></div><div class="r">automações que você pode rodar</div></div>
   <div class="kpi" id="kpi-pulso"><div class="lab"><span class="tick"></span>o time agora</div><div class="n" id="k-pulso">repouso</div><div class="under"></div><div class="r">estado do sistema</div></div>
 </div>
 
@@ -187,7 +189,7 @@ function render(d){
   $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${esc(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
   const f=d.fonte||{};
   $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`;
-  $('#fonte-sub').textContent=f.sub||'';
+  $('#fonte-sub').innerHTML=esc(f.sub||'')+`<br><span style="display:inline-block;margin-top:7px;opacity:.72">Como: solte um .csv/.xlsx em <b>contexto/dados/</b> (aba Contexto), ou rode <b>/conectar</b> no Claude Code.</span>`;
   if((d.skills||[])[0])$('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
   const pu=$('#pulso');
   if((d.pulso||[]).length){
@@ -197,10 +199,12 @@ function render(d){
     pu.innerHTML='<div class="vazio">Nada agora. Quando você pedir algo pro seu time no Claude Code, aparece aqui em tempo real.</div>';
   }
 }
-const MOCK={ativo:true,perfil:{nome:'Analista de dados, dashboards Power BI',resumo:['Analista de dados numa empresa média','Monta dashboards em Power BI','Trava na fila da engenharia pra liberar dado']},
-  agentes:[{},{},{},{}],skills:[{cmd:'/nova-view'},{},{}],
-  fonte:{titulo:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views.'},
-  pulso:[{agente:'Desbloqueador de Dados',acao:'montou a view de faturamento',quando:'agora'},{agente:'Arquiteto Power BI',acao:'ajustou as medidas DAX',quando:'2min'}]};
+const MOCK={ativo:true,perfil:{nome:'Coordenador comercial, indústria média',resumo:['Coordenador comercial numa indústria de médio porte','Decide por região, produto e vendedor','Recebe o faturamento em planilha e não confia no número']},
+  // 7 = 2 sob medida + 4 core + 1 bônus, o mesmo que o catálogo (skills.html) mostra e o
+  // mesmo que o real contaria varrendo .claude/skills/. Contador de demo tem que bater.
+  agentes:[{},{},{},{}],skills:[{cmd:'/fechamento-mensal'},{cmd:'/raio-x-regiao'},{},{},{},{},{}],
+  fonte:{titulo:'Relatório gerencial de faturamento',sub:'o export mensal do ERP que o time consulta pra te dar o número pronto.'},
+  pulso:[{agente:'Analista Comercial',acao:'fechou o faturamento de dezembro',quando:'agora'},{agente:'Controller',acao:'apontou queda de margem no Sul',quando:'2min'}]};
 async function tick(){
   if(DEMO){render(MOCK);return;}
   try{render(await (await fetch('/api/painel')).json());}catch(e){$('#estado').textContent='offline';$('#estado').style.color='var(--error)';$('#dot').classList.remove('vivo');}

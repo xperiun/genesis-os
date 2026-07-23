@@ -66,7 +66,7 @@
 <header><h1>Integrações<span>As conexões do seu OS</span></h1></header>
 <main>
   <div class="grid" id="grid"></div>
-  <div class="nota">Seu OS roda no <b>Claude Code da sua assinatura</b>. Não tem chave de API paga, não tem mensalidade de plataforma. Pra conectar sua fonte de dados de verdade, descreva ela em <code>contexto/fonte.md</code> ou solte os documentos em <code>contexto/referencia/</code> (na aba Contexto). O time passa a enxergar seu número.</div>
+  <div class="nota">Seu OS roda no <b>Claude Code da sua assinatura</b>. Não tem chave de API paga, não tem mensalidade de plataforma. Pra conectar sua fonte de dados de verdade, solte o export (<code>.csv</code>/<code>.xlsx</code>) em <code>contexto/dados/</code> (na aba Contexto), ou rode <code>/conectar</code> pra ligar um sistema (CRM, ERP, anúncios). O time passa a enxergar seu número.</div>
 </main>
 <script>
 'use strict';
@@ -75,9 +75,9 @@ const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK={conexoes:[
   {chave:'cerebro',ic:'🧠',ok:true,nome:'Claude Code',sub:'O motor do chat e dos builds do time. Roda na SUA assinatura, R$ 0 de token de API.'},
-  {chave:'fonte',ic:'🗄️',ok:true,nome:'Banco SQL da empresa',sub:'É a fonte que o time consulta pra montar as views (42 lojas, Oracle).'},
+  {chave:'fonte',ic:'🗄️',ok:false,pendente:true,nome:'Relatório gerencial de faturamento',sub:'Ainda não conectada. Pra conectar: solte o export .csv/.xlsx em contexto/dados/ (aba Contexto), ou rode /conectar no Claude Code. O time só passa a enxergar o número depois disso.'},
   {chave:'knowledge',ic:'📚',ok:true,nome:'Knowledge base (1 doc)',sub:'Os documentos do seu negócio em contexto/referencia/. O time e o chat usam como verdade.'},
-  {chave:'time',ic:'❖',ok:true,nome:'4 agentes · 3 skills',sub:'Seu time montado pelo Genesis, invocável de verdade no Claude Code.'},
+  {chave:'time',ic:'❖',ok:true,nome:'4 agentes · 2 skills',sub:'Seu time montado pelo Genesis, invocável de verdade no Claude Code.'},
 ]};
 function render(d){
   $('#grid').innerHTML=(d.conexoes||[]).map(c=>{

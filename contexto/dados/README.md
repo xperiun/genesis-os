@@ -1,4 +1,4 @@
-# dados
+# Seus dados (`contexto/dados/`)
 
 Solte aqui as planilhas do seu trabalho.
 
@@ -27,7 +27,7 @@ O único arquivo desta pasta que é versionado é este README.
 
 ## Entra aqui, sai em producao/
 
-- **`dados/`** é o que você traz.
+- **`contexto/dados/`** é o que você traz.
 - **`producao/`** é o que o seu time produz a partir disso: o relatório, e também
   o **script de análise**, que fica salvo e roda de novo mês que vem com o arquivo
   novo. Você não ganha uma resposta, ganha um analisador.

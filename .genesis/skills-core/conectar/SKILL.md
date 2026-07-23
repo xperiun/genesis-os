@@ -25,7 +25,7 @@ sobre o que não tiver.
 
 E ela **não** é obrigatória. Exportação recorrente resolve a maior parte do caso
 real de negócio, e é um desfecho legítimo, não prêmio de consolação. Se a pessoa
-só precisa do dado do mês passado, `dados/` mais `/analisar` já entrega, sem
+só precisa do dado do mês passado, `contexto/dados/` mais `/analisar` já entrega, sem
 credencial nenhuma no meio.
 
 ---
@@ -212,6 +212,29 @@ mudou.
 
 Depois de resolver com o print, **atualize a receita**. O próximo não passa por
 isso.
+
+---
+
+## Passo 7 — Registrar a conexão no OS (senão o painel mente ao contrário)
+
+Só depois da chamada real ter voltado com dado E da pessoa ter conferido o número
+(passos 5 e 6), marque a conexão no manifesto do OS. Sem isso o painel segue
+mostrando **"a conectar"** pra sempre, mesmo com a integração funcionando, e a
+pessoa fica sendo mandada conectar o que já conectou.
+
+Abra o `meu-os.json` na raiz do repo e, dentro do objeto `fonte`, grave:
+
+```json
+"conectada": true
+```
+
+Mantenha o resto do arquivo intacto (leia, altere só esse campo, grave de volta).
+Se o `meu-os.json` não existir, não invente: siga sem marcar.
+
+**Só marque com prova.** Este campo é o que o painel lê pra dizer "conectado". Marcar
+sem uma chamada real ter devolvido dado real transforma o painel em teatro, que é
+exatamente o que esta skill existe pra evitar. Fonte de arquivo (planilha em
+`contexto/dados/`) não precisa disso: o painel detecta o arquivo sozinho.
 
 ---
 

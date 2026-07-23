@@ -820,6 +820,12 @@ def _prompt_gerador(perfil, agentes, skills, referencia=""):
         "3) Pra CADA skill: frontmatter válido (name = o slug; description) + input, processo "
         "passo a passo (o que o Claude Code executa, com código quando fizer sentido) e "
         "output. Automação que RODA de verdade, não placeholder.\n"
+        "   REGRA DE SAÍDA (inviolável): todo arquivo que a skill PRODUZIR (relatório, roteiro, "
+        "peça, deck, export) vai em `producao/<pasta-da-skill>/`, por exemplo `producao/eventos/`, "
+        "`producao/relatorios/`, `producao/carrosseis/`. NUNCA na raiz do repo (nada de `eventos/` "
+        "ou `relatorios/` soltos no topo). Escreva o caminho de saída EXPLÍCITO no passo a passo "
+        "da SKILL.md (ex: 'salve o resultado em `producao/eventos/<nome>.md`'), pra a skill nunca "
+        "poluir a raiz. O dado de ENTRADA vem de `contexto/dados/` e `contexto/referencia/`.\n"
         "4) Português do Brasil com acentos, SEM travessão (o traço longo) em prosa e "
         "SEM as palavras 'canon'/'canônico' (jargão de produção). Não cerque o arquivo "
         "com crase.\n\n"
@@ -1103,7 +1109,12 @@ def _claude_md(reco, base):
           "(detalhe em `contexto/fonte.md`)", "",
           "## Como meu OS trabalha", "",
           "- Português do Brasil, direto e honesto. Nunca invente número ou dado que você não tem.",
-          "- As entregas do time caem em `producao/`.",
+          "- **Todo entregável vai em `producao/<pasta>/`, NUNCA na raiz do repo.** Qualquer "
+          "arquivo que uma skill ou um pedido produzir (relatório, roteiro, peça, deck, export) "
+          "grava em `producao/<tema>/`, por exemplo `producao/eventos/`, `producao/relatorios/`. "
+          "Criar pasta nova na RAIZ é erro: a raiz é só a estrutura do OS (`.claude/`, "
+          "`contexto/`, `producao/`). Na dúvida sobre a subpasta, use o tema da skill.",
+          "- O dado de entrada vem de `contexto/dados/` (planilhas) e `contexto/referencia/` (docs do negócio).",
           "- Consistência visual é inegociável: todo entregável visual passa pelo agente `design-system`."]
 
     # Roteamento EXPLÍCITO pras skills core. Listar a skill acima não basta: medido em
@@ -1113,7 +1124,7 @@ def _claude_md(reco, base):
     # CLAUDE.md pega porque este arquivo entra em contexto em TODA sessão.
     # Condicional ao arquivo existir no disco: este CLAUDE.md nunca promete o que não há.
     if (skills_dir / "analisar" / "SKILL.md").exists():
-        L += ["- **Pergunta sobre planilha ou dado (`dados/`, `.xlsx`, `.csv`): INVOQUE a skill `analisar`.**",
+        L += ["- **Pergunta sobre planilha ou dado (`contexto/dados/`, `.xlsx`, `.csv`): INVOQUE a skill `analisar`.**",
               "  Invoque a skill de verdade, não reimplemente o que ela faz. Ela roda um profiler",
               "  determinístico que lê 100% das linhas e é coberto por teste de regressão. Script",
               "  escrito na hora não tem essa garantia, mesmo quando parece dar certo."]
@@ -1185,7 +1196,8 @@ def instalar(reco, base, modelo=None):
     _mlog("Organizando o time e preparando o repositório...")
     reco = _scrub(reco) if isinstance(reco, dict) else {}  # travessão/canon fora do que grava
     _garantir_ds(reco)  # DS obrigatório ANTES de materializar
-    for sub in ("contexto", "contexto/referencia", "producao", ".claude/agents", ".claude/skills"):
+    for sub in ("contexto", "contexto/referencia", "contexto/dados", "producao",
+                ".claude/agents", ".claude/skills"):
         (base / sub).mkdir(parents=True, exist_ok=True)
     agents_dir = base / ".claude" / "agents"
     skills_dir = base / ".claude" / "skills"
@@ -1288,6 +1300,7 @@ def instalar(reco, base, modelo=None):
         "Estrutura do seu OS:\n"
         "- `.claude/agents/`: **o seu time, como subagents reais do Claude Code** (invocáveis)\n"
         "- `contexto/`: quem você é. Jogue seus docs em `contexto/referencia/` ANTES de montar, o time nasce sabendo\n"
+        "- `contexto/dados/`: onde entram suas PLANILHAS (`.csv`, `.xlsx`). É daqui que o time lê seu número, e a skill `/analisar` audita antes de responder\n"
         "- `producao/`: onde as entregas do seu time caem\n"
         "- `.claude/skills/`: suas skills sob medida\n"
         "- `meu-os.json`: o manifesto do OS\n\n"
@@ -1316,8 +1329,15 @@ def instalar(reco, base, modelo=None):
     (base / "contexto" / "fonte.md").write_text(
         "# Minha fonte de dados\n\n**" + _sem_html(fonte.get("titulo", "sua fonte")) + "**\n\n" +
         _sem_html(fonte.get("sub", "")) +
-        "\n\n> Aqui vai a fonte de dados VIVA (planilha, API, export que atualiza). O knowledge "
-        "estático (quem você é, produtos, tom, casos) vai em `contexto/referencia/`.\n",
+        "\n\n## Como conectar\n\n"
+        "Enquanto você não conectar, isto é só a recomendação da entrevista, não uma conexão. "
+        "Pra ligar de verdade:\n\n"
+        "- **Arquivo (planilha, export do sistema):** solte o `.csv` ou `.xlsx` na pasta "
+        "`contexto/dados/`. O time lê de lá, e a skill `/analisar` audita antes de responder.\n"
+        "- **Sistema (CRM, ERP, anúncios, uma API):** rode `/conectar` no Claude Code. Ele monta "
+        "o acesso e só dá como conectado quando uma chamada real devolve dado real.\n\n"
+        "> A fonte de dados VIVA (o que atualiza) vive em `contexto/dados/`. O knowledge estático "
+        "(quem você é, produtos, tom, casos) vai em `contexto/referencia/`.\n",
         encoding="utf-8")
 
     (base / "producao" / ".gitkeep").write_text("", encoding="utf-8")

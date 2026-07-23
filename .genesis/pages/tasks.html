@@ -52,8 +52,9 @@
   #novo select{min-width:150px}
   #novo input:focus,#novo textarea:focus,#novo select:focus{outline:none;border-color:var(--cyan);box-shadow:inset 0 0 16px -12px rgba(83,231,234,.6)}
   /* board */
-  .board{flex:1 1 auto;overflow-y:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:16px;padding:20px 24px}
-  .col{display:flex;flex-direction:column;min-height:120px}
+  .board{flex:1 1 auto;overflow-y:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:20px 24px}
+  .col{display:flex;flex-direction:column;min-height:120px;padding:0 18px;border-left:1px solid var(--line)}
+  .col:first-child{padding-left:0;border-left:none}
   .col-h{font-size:var(--fs-micro);letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:500}
   .col-h::before{content:"";width:6px;height:6px;background:var(--cyan);box-shadow:0 0 6px rgba(83,231,234,.7);flex:0 0 6px}
   .col[data-st="backlog"] .col-h::before{background:var(--cyan-deep);box-shadow:0 0 6px rgba(28,110,119,.7)}
@@ -165,6 +166,9 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const FONTE_LBL={painel:'Painel',chat:'Chat',build:'Build'};
+// no DETALHE a origem vira frase: "Painel" seco não conta nada pro dono. No card, a origem
+// `painel` (o default, ele mesmo criou) nem aparece, pra não repetir ruído em todo card.
+const FONTE_DET={painel:'criada por você no painel',chat:'nasceu de uma conversa no chat',build:'criada por um build'};
 const ST_LBL={backlog:'A fazer',doing:'Rodando',revisar:'Revisar',done:'Feito',falhou:'Falhou'};
 const COLS=['backlog','doing','revisar','done','falhou'];
 const VAZIO={
@@ -176,11 +180,11 @@ const VAZIO={
 };
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_TASKS=[
-  {id:'m1',titulo:'Montar o relatório de margem por loja',agente:'arquiteto-power-bi',fonte:'painel',status:'backlog',ativo:false,detalhe:'Foco nas 42 lojas, ordenar por margem',criado:'2026-07-10T09:00'},
-  {id:'m2',titulo:'Alerta de ruptura de estoque no dashboard',fonte:'chat',status:'doing',ativo:true,detalhe:'',criado:'2026-07-10T09:10'},
-  {id:'m4',titulo:'Post sobre o resultado do trimestre',agente:'redator-do-negocio',fonte:'chat',status:'revisar',ativo:true,resultado:'Escrevi o post com os 3 números do trimestre e uma chamada pra conversa. Confere o tom antes de publicar.',saida:['producao/post-resultado-trimestre.md'],criado:'2026-07-10T08:55'},
-  {id:'m3',titulo:'View de faturamento consolidado',fonte:'build',status:'done',ativo:true,resultado:'Criei a view SQL e o painel de faturamento. Arquivo em producao/faturamento.md.',saida:['producao/faturamento.md'],criado:'2026-07-10T08:40'},
-  {id:'m5',titulo:'Importar a planilha de clientes pro banco',agente:'engenheiro-de-dados',fonte:'painel',status:'falhou',ativo:true,falhou:true,resultado:'O build parou no meio: a planilha clientes.xlsx não estava em contexto/referencia/. Coloca o arquivo lá e roda de novo.',criado:'2026-07-10T08:20'},
+  {id:'m1',titulo:'Relatório de margem por região',agente:'analista-comercial',fonte:'painel',status:'backlog',ativo:false,detalhe:'Cinco regiões, ordenar por margem, apontar o fora da curva',criado:'2026-07-10T09:00'},
+  {id:'m2',titulo:'Fechar o faturamento de dezembro',fonte:'chat',status:'doing',ativo:true,detalhe:'',criado:'2026-07-10T09:10'},
+  {id:'m4',titulo:'Resumo do trimestre pra diretoria',agente:'tradutor-de-negocio',fonte:'chat',status:'revisar',ativo:true,resultado:'Escrevi o resumo com os 3 números do trimestre e o que cada um sugere de decisão. Confere antes de levar pra reunião.',saida:['producao/resumo-trimestre.md'],criado:'2026-07-10T08:55'},
+  {id:'m3',titulo:'Faturamento consolidado do mês',fonte:'build',status:'done',ativo:true,resultado:'Consolidei o faturamento por região, produto e vendedor, com o total conferido. Arquivo em producao/faturamento.md.',saida:['producao/faturamento.md'],criado:'2026-07-10T08:40'},
+  {id:'m5',titulo:'Cruzar margem com a meta por região',agente:'controller',fonte:'painel',status:'falhou',ativo:true,falhou:true,resultado:'O build parou no meio: o export do mês não estava na pasta contexto/dados/. Coloca o arquivo lá e roda de novo.',criado:'2026-07-10T08:20'},
 ];
 let CARDS=[], detId=null, detPoll=null, detEncerrar=false, saveT=null, toastT=null;
 let BOARD_SIG='', liveSig='', resSig='';
@@ -230,7 +234,7 @@ function cardHTML(c){
   const idea=c.status==='backlog'&&!c.ativo;
   const falhou=!!(c.falhou||c.status==='falhou');
   return `<div class="tk ${esc(c.status)}" draggable="true" data-id="${esc(c.id)}">
-    <div class="tk-top"><span class="tk-fonte f-${esc(c.fonte||'painel')}">${esc(FONTE_LBL[c.fonte]||c.fonte||'painel')}</span>
+    <div class="tk-top">${(c.fonte&&c.fonte!=='painel')?`<span class="tk-fonte f-${esc(c.fonte)}">${esc(FONTE_LBL[c.fonte]||c.fonte)}</span>`:''}
       ${falhou?'<span class="tk-badge falhou">falhou</span>':''}
       ${idea?`<span class="tk-ativar" data-ativar="${esc(c.id)}">▶ ativar</span>`:''}
       ${c.status==='revisar'?`<button class="tk-ok" data-concluir="${esc(c.id)}" title="conferido, marcar como feito">✓ Concluir</button>`:''}</div>
@@ -286,7 +290,7 @@ $('#f-ideia').onclick=()=>criar(false);$('#f-ativar').onclick=()=>criar(true);
 function abrirDet(id){
   const c=CARDS.find(x=>x.id===id);if(!c)return;detId=id;
   $('#d-status').textContent=ST_LBL[c.status]||c.status;$('#d-status').className='det-status '+c.status;
-  $('#d-fonte').textContent=(FONTE_LBL[c.fonte]||c.fonte||'painel');
+  $('#d-fonte').textContent=(FONTE_DET[c.fonte]||FONTE_DET.painel);
   $('#d-titulo').value=c.titulo||'';$('#d-detalhe').value=c.detalhe||'';
   $('#d-meta').innerHTML=`<span>◆ ${esc(c.agente||'time')}</span><span>criado ${esc((c.criado||'').replace('T',' ').slice(0,16))}</span>`;
   liveSig='';resSig='';

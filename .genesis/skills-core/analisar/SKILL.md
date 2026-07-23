@@ -1,6 +1,6 @@
 ---
 name: analisar
-description: "Audita e analisa planilha (.xlsx, .csv) antes de responder qualquer pergunta sobre ela. Perfila o arquivo inteiro, mostra as armadilhas que encontrou (subtotal no meio dos dados, coluna de tipo misto, célula mesclada, data ambígua, dado pessoal), escreve o script de análise já defendido contra elas, e reconcilia o resultado contra o próprio arquivo antes de mostrar qualquer número. Use quando pedirem para analisar, somar, agrupar, comparar ou responder pergunta sobre planilha, tabela, base, relatório, export, faturamento, vendas, custo ou qualquer arquivo em dados/."
+description: "Audita e analisa planilha (.xlsx, .csv) antes de responder qualquer pergunta sobre ela. Perfila o arquivo inteiro, mostra as armadilhas que encontrou (subtotal no meio dos dados, coluna de tipo misto, célula mesclada, data ambígua, dado pessoal), escreve o script de análise já defendido contra elas, e reconcilia o resultado contra o próprio arquivo antes de mostrar qualquer número. Use quando pedirem para analisar, somar, agrupar, comparar ou responder pergunta sobre planilha, tabela, base, relatório, export, faturamento, vendas, custo ou qualquer arquivo em contexto/dados/."
 ---
 
 # Analisar
@@ -126,11 +126,11 @@ conferência possível, **diga isso em voz alta** e trate o número como estimat
 
 | Pasta | O quê |
 |---|---|
-| `dados/` | as planilhas do usuário. **Entra aqui.** Fora do Git, nunca sobe pra lugar nenhum |
+| `contexto/dados/` | as planilhas do usuário. **Entra aqui.** Fora do Git, nunca sobe pra lugar nenhum |
 | `producao/analises/` | o script gerado e o relatório. **Sai aqui** |
 | `contexto/referencia/` | material sobre o negócio (quem é, produtos, tom). **Não** é lugar de planilha de dado |
 
-Se o usuário não disser onde está o arquivo, olhe em `dados/` primeiro.
+Se o usuário não disser onde está o arquivo, olhe em `contexto/dados/` primeiro.
 
 ---
 

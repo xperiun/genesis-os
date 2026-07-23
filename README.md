@@ -29,7 +29,8 @@ Detalhe em `CLAUDE.md`.
 
 - `.claude/agents/` — o seu time, como subagents reais e invocáveis do Claude Code.
 - `.claude/skills/` — as suas automações sob medida.
-- `contexto/` — quem você é (o que faz o time te entender) e a fonte a conectar.
+- `contexto/` — quem você é (o que faz o time te entender). Os docs do negócio vão em
+  `contexto/referencia/`, e suas **planilhas** (`.csv`/`.xlsx`) em `contexto/dados/`.
 - `CLAUDE.md` — o cérebro do seu OS, lido pelo Claude Code toda sessão.
 - `producao/` — onde as entregas do time caem.
 

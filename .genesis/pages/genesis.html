@@ -547,6 +547,19 @@ NÚMEROS E CASOS:
 OUTROS DETALHES RELEVANTES:`;
 
 let abDemo=[];  // só o ?demo usa: a lista fingida da cena sem servidor
+// leituras em andamento (site sendo lido, arquivo subindo): enquanto > 0, a entrevista fica
+// TRAVADA. Ir pra entrevista no meio de um puxar-site significa entrevistar SEM o brief que
+// ainda está sendo escrito, e o brief cairia depois, ignorado. Melhor esperar terminar.
+let lendoAgora=0;
+function travarAbastecer(){
+  const oc=lendoAgora>0, s=$('#ab-seguir'), p=$('#ab-pular');
+  if(s){
+    s.disabled=oc;
+    if(oc){ s.textContent='Terminando de ler…'; }
+    else { const n=$('#ab-lista').children.length; s.textContent = n ? 'Bora pra entrevista →' : 'Seguir sem conectar →'; }
+  }
+  if(p){ p.style.pointerEvents=oc?'none':''; p.style.opacity=oc?'.45':''; p.setAttribute('aria-disabled',oc?'true':'false'); }
+}
 function abPinta(itens){
   const L=$('#ab-lista');
   L.innerHTML=itens.map(a=>`<div class="ab-item"><span class="ok">✓</span><span class="nm">${esc(a.nome)}</span><span class="kb">${a.kb} KB</span><button class="x" data-rel="${esc(a.rel)}" title="tirar">✕</button></div>`).join('');
@@ -554,7 +567,7 @@ function abPinta(itens){
   $('#ab-nota').textContent = n
     ? `${n} ${n===1?'documento conectado':'documentos conectados'}. Eu leio isso antes de te entrevistar, e o seu time nasce sabendo.`
     : 'Nada conectado ainda. Quanto mais real o material, mais afiado o time sai.';
-  $('#ab-seguir').textContent = n ? 'Bora pra entrevista →' : 'Seguir sem conectar →';
+  travarAbastecer();  // define o label do seguir (contando os itens) e respeita leitura em curso
   L.querySelectorAll('.x').forEach(b=>b.addEventListener('click',async e=>{
     e.preventDefault(); keyclick(.06);
     if(DEMO){ abDemo=abDemo.filter(a=>a.rel!==b.dataset.rel); abPinta(abDemo); return; }
@@ -573,6 +586,7 @@ function abTemp(txt,cls){ // feedback otimista enquanto o servidor trabalha
 }
 async function abGravar(nome,conteudo){
   const t=abTemp('conectando '+nome+'...');
+  lendoAgora++; travarAbastecer();
   try{
     const r=await (await api('/api/genesis/contexto',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({nome,conteudo})})).json();
@@ -580,6 +594,7 @@ async function abGravar(nome,conteudo){
     if(!r.ok){ const e=abTemp(nome+': '+(r.erro||'não deu'),'erro'); setTimeout(()=>e.remove(),6000); return false; }
     keyclick(.09); abListar(); return true;
   }catch(e){ t.remove(); const x=abTemp(nome+': falhou','erro'); setTimeout(()=>x.remove(),6000); return false; }
+  finally{ lendoAgora--; travarAbastecer(); }
 }
 async function abArquivos(lista){
   // um de cada vez, de propósito: soltar 10 arquivos de uma vez disparava 10 FileReader e 10
@@ -604,6 +619,7 @@ $('#ab-file').addEventListener('change',e=>{abArquivos(e.target.files); e.target
 $('#ab-site-form').addEventListener('submit',async e=>{
   e.preventDefault(); const url=$('#ab-site').value.trim(); if(!url) return;
   keyclick(.09); const bt=$('#ab-site-bt'); bt.disabled=true; bt.textContent='Lendo...';
+  lendoAgora++; travarAbastecer();  // trava a entrevista enquanto o site é lido
   const t=abTemp('abrindo '+url+'...');
   // espera VIVA: o servidor roda um claude -p de até 240s lendo o site; texto parado
   // por minutos lê como travamento. Frases rotativas + cronômetro até resolver.
@@ -619,6 +635,7 @@ $('#ab-site-form').addEventListener('submit',async e=>{
     if(r.ok){ $('#ab-site').value=''; abListar(); }
     else{ const x=abTemp(r.erro||'não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
   }catch(err){ paraEspera(); t.remove(); const x=abTemp('não consegui ler esse site','erro'); setTimeout(()=>x.remove(),7000); }
+  lendoAgora--; travarAbastecer();  // leitura terminou: libera a entrevista
   bt.disabled=false; bt.textContent='Ler';
 });
 // trazer de outro assistente
@@ -945,7 +962,7 @@ function irMontagem(){
 function demoLog(agentes){
   $('#mstatuslin').textContent='Pesquisando e escrevendo';
   const body=$('#term-body'); $('#term').hidden=false; body.textContent='';
-  const buscas=['Organizando o time e preparando o repositório...','Pesquisando: "SQL views self-service analytics best practices"','Pesquisando: "Power BI star schema Kimball dimensional modeling"','Pesquisando: "DAX patterns financial reporting SQLBI"'];
+  const buscas=['Organizando o time e preparando o repositório...','Pesquisando: "análise de faturamento por região e canal"','Pesquisando: "margem de contribuição por linha de produto"','Pesquisando: "rotina de fechamento comercial mensal"'];
   const escreve=agentes.map(a=>'Escrevendo .claude/agents/'+a.slug+'.md');
   const skills=(recomendacao.skills||[]).map(s=>'Escrevendo .claude/skills/'+s.slug+'/SKILL.md');
   const linhas=[...buscas,...escreve,...skills,'Time gravado no seu repositório.'];

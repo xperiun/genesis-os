@@ -106,8 +106,8 @@ const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp
 let skills=[], atual=null;
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 const MOCK_SK=[
-  {slug:'nova-view',nome:'Nova view',ic:'⚡',cmd:'/nova-view',desc:'Gera a view SQL a partir da necessidade do dashboard.'},
-  {slug:'modelo-financeiro',nome:'Modelo financeiro',ic:'📊',cmd:'/modelo-financeiro',desc:'Monta o modelo estrela do financeiro no Power BI.'},
+  {slug:'fechamento-mensal',nome:'Fechamento mensal',ic:'⚡',cmd:'/fechamento-mensal',desc:'Consolida o faturamento do mês e destaca o que importa pra decisão: região, produto e margem fora da curva.'},
+  {slug:'raio-x-regiao',nome:'Raio-X por região',ic:'🔎',cmd:'/raio-x-regiao',desc:'Compara regiões e produtos e mostra onde está ganhando e onde está vazando, com o número já conferido.'},
   {slug:'conectar',nome:'Conectar',ic:'🔌',cmd:'/conectar',desc:'Liga o seu OS às ferramentas que você já usa. Só declara sucesso quando uma chamada real devolve dado real.',obrigatoria:true},
   {slug:'analisar',nome:'Analisar',ic:'🔍',cmd:'/analisar',desc:'Audita a planilha antes de responder qualquer pergunta sobre ela, e reconcilia o resultado contra o próprio arquivo.',obrigatoria:true},
   {slug:'extrair-design-system',nome:'Extrair design system',ic:'🎨',cmd:'/extrair-design-system',desc:'Extrai o design system de uma referência e gera o DS do seu OS.',obrigatoria:true},
@@ -115,8 +115,8 @@ const MOCK_SK=[
   {slug:'site-reveal-cinematico',nome:'Site com Reveal Cinematográfico',ic:'🎬',cmd:'/site-reveal-cinematico',desc:'Cria um site scroll-driven com reveal cinematográfico (estilo Apple). Ótimo pra portfólio: mostrar seus dashboards num site premium.',bonus:true},
 ];
 const MOCK_SKC={
-  'nova-view':'---\nname: nova-view\n---\n\n# Nova view\n\nGera a view SQL a partir da necessidade do dashboard.\n\n## Processo\n1. Entende a métrica pedida\n2. Desenha a view mínima\n3. Valida performance e documenta\n',
-  'modelo-financeiro':'---\nname: modelo-financeiro\n---\n\n# Modelo financeiro\n\nMonta o modelo estrela (fato + dimensões) do financeiro no Power BI, com medidas DAX limpas.\n',
+  'fechamento-mensal':'---\nname: fechamento-mensal\n---\n\n# Fechamento mensal\n\nConsolida o faturamento do mês e destaca o que importa pra decisão.\n\n## Processo\n1. Lê o export do ERP e separa transação de subtotal\n2. Consolida por região, produto e vendedor\n3. Aponta o que saiu da curva e confere o total\n',
+  'raio-x-regiao':'---\nname: raio-x-regiao\n---\n\n# Raio-X por região\n\nCompara regiões e produtos e mostra onde está ganhando e onde está vazando, com o número já conferido.\n',
   'extrair-design-system':'---\nname: extrair-design-system\n---\n\n# Extrair design system\n\nExtrai o design system de uma referência (HTML, URL, print) e gera o DS do seu OS.\n',
 };
 

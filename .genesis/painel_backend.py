@@ -574,11 +574,14 @@ def integracoes(base):
     # da entrevista ("o que você deveria conectar"), não uma conexão. Marcar "conectado" só
     # porque a sugestão existe era mentira na cara do comprador (caso real: "Planilha
     # financeira do LUKK · CONECTADO" com o próprio sub pedindo pra conectar). Conectada de
-    # verdade = flag explícita `fonte.conectada` no meu-os.json OU dado real no vault
-    # (algum .csv/.xlsx em contexto/, fora o template).
-    tem_dado = any(f.suffix.lower() in (".csv", ".xlsx")
-                   for f in (base / "contexto").rglob("*") if f.is_file()) \
-        if (base / "contexto").is_dir() else False
+    # verdade = flag explícita `fonte.conectada` no meu-os.json OU dado real em `contexto/dados/`.
+    # NÃO conta .csv em contexto/referencia/: lá é KNOWLEDGE (o cursos-plataforma.csv que o
+    # /setup importa marcava a fonte como conectada sem nada estar conectado). A fonte de dados
+    # vive em `contexto/dados/`, que é onde o /analisar lê e onde a planilha do dia a dia entra
+    # (aparece na aba Contexto, ao lado do knowledge, sob um teto só).
+    dados = base / "contexto" / "dados"
+    tem_dado = any(f.suffix.lower() in (".csv", ".xlsx", ".xls") and f.name.lower() != "readme.md"
+                   for f in dados.rglob("*") if f.is_file()) if dados.is_dir() else False
     fonte_ok = bool(fonte.get("conectada")) or tem_dado
     return {"conexoes": [
         {"chave": "cerebro", "ic": "🧠", "ok": bool(shutil.which("claude")), "nome": "Claude Code",
@@ -586,9 +589,13 @@ def integracoes(base):
         {"chave": "fonte", "ic": "🗄️", "ok": fonte_ok,
          "pendente": bool(fonte.get("titulo")) and not fonte_ok,
          "nome": fonte.get("titulo") or "sua fonte de dados",
-         "sub": (fonte.get("sub") or "Conecte uma planilha, um banco ou uma API pro time enxergar seu número.")
-         if fonte_ok or not fonte.get("titulo") else
-         "Ainda não conectada. Solte um export (.csv) em contexto/ ou descreva o acesso em contexto/fonte.md, e o time passa a enxergar seu número."},
+         # o texto SEGUE o status, senão o card se contradiz: já apareceu "CONECTADO" ao lado
+         # de "Conecte uma planilha..." (fonte conectada por um .csv no disco, mas sem `sub`
+         # no meu-os.json, caindo no fallback que era uma CTA de quem NÃO conectou).
+         "sub": (fonte.get("sub") or "Conectada: o time lê o dado real daqui.") if fonte_ok else
+         ("Ainda não conectada. Pra conectar: solte um export .csv/.xlsx na pasta contexto/dados/ (aba Contexto), ou rode /conectar no Claude Code pra ligar um sistema (CRM, ERP, anúncios). O time só passa a enxergar o número depois disso."
+          if fonte.get("titulo") else
+          "Conecte uma planilha (.csv/.xlsx em contexto/dados/) ou um sistema (/conectar) pro time enxergar seu número.")},
         {"chave": "knowledge", "ic": "📚", "ok": ndocs > 0,
          "nome": f"Knowledge base ({ndocs} doc" + ("s" if ndocs != 1 else "") + ")",
          "sub": "Os documentos do seu negócio em contexto/referencia/. O time e o chat usam como verdade."},
@@ -813,7 +820,13 @@ def _detectar_saida_b(base, texto):
 
 
 def _build_rodar(base, tarefa, origem, contexto=""):
-    task_registrar(base, tarefa, status="doing", fonte="build", origem=origem, falhou=False)
+    # ORIGEM do card, pro dono saber de onde a tarefa veio. Só vale pra card NOVO: se `origem`
+    # já existe (card do board que ele ativou), o task_registrar atualiza e preserva a origem
+    # original. Build COM transcrição de conversa nasceu do chat com o agente; sem conversa,
+    # foi disparado direto. Antes os dois viravam "build", e a tag `chat` nunca existia de
+    # verdade (só no ?demo), o que é rótulo mentindo sobre a própria procedência.
+    fonte_origem = "chat" if (contexto or "").strip() else "build"
+    task_registrar(base, tarefa, status="doing", fonte=fonte_origem, origem=origem, falhou=False)
     _bev("inicio", tarefa[:120])
     _pulso(base, _BUILD.get("agente"), "começou: " + tarefa[:90])
     ok, resultado = False, ""
@@ -832,8 +845,9 @@ def _build_rodar(base, tarefa, origem, contexto=""):
                          "conversa, PRODUZA o entregável.\n--- conversa ---\n"
                          + contexto.strip()[:16000] + "\n--- fim da conversa ---\n")
         prompt = (
-            "Tarefa pedida pelo dono deste OS. Execute e entregue de VERDADE (escreva os "
-            "arquivos em producao/). Faça você mesmo com Read/Write/Bash, NUNCA delegue a "
+            "Tarefa pedida pelo dono deste OS. Execute e entregue de VERDADE. TODO arquivo que "
+            "você produzir vai em producao/<pasta-do-tema>/ (ex: producao/eventos/), NUNCA na "
+            "raiz do repo: criar pasta nova no topo é erro. Faça você mesmo com Read/Write/Bash, NUNCA delegue a "
             "subagente. Confirme que o(s) arquivo(s) existem no disco antes de dizer que "
             "terminou. NUNCA rode comandos git (versionar é decisão do dono, fora do build). "
             "Ao terminar, responda em no máximo 2 frases de texto puro (sem markdown): o que "
@@ -898,7 +912,7 @@ def _build_rodar(base, tarefa, origem, contexto=""):
     # vai pra `revisar` (o dono confere antes de fechar); sucesso sem arquivo (análise,
     # resposta) fecha direto em `done`.
     st_fim = "falhou" if not ok else ("revisar" if saida else "done")
-    task_registrar(base, tarefa, status=st_fim, fonte="build",
+    task_registrar(base, tarefa, status=st_fim, fonte=fonte_origem,
                    origem=origem, resultado=(resultado or "")[:6000], saida=saida,
                    falhou=(not ok))
     _bev("fim", "pronto" if ok else "falhou")
