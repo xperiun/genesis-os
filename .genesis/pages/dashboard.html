@@ -162,7 +162,7 @@
     </section>
   </div>
   <aside class="rail">
-    <div class="conecta"><div class="ch"><i></i>Conecte sua realidade</div><p id="fonte">—</p><small id="fonte-sub"></small></div>
+    <div class="conecta"><div class="ch"><i></i><span id="fonte-ch">Conecte sua realidade</span></div><p id="fonte">—</p><small id="fonte-sub"></small></div>
     <div class="panel"><div class="p-label"><span class="tick"></span>Como pôr o time pra trabalhar</div><div class="comojog">Volte pro Claude Code e peça direto (<b>"monta o relatório da semana"</b>) ou rode uma skill sua (ex: <code id="ex-skill">/relatorio</code>). Cada agente é invocável de verdade.<div class="ir-time" onclick="parent.location.hash='agentes'">ver e conversar com os agentes →</div></div></div>
   </aside>
 </main>
@@ -187,9 +187,18 @@ function render(d){
   const p=d.perfil||{}, resumo=p.resumo||[];
   $('#perfil-nome').textContent=p.nome||'Seu OS';
   $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${esc(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
+  // o card SEGUE o estado: já conectado vira confirmação, não CTA. Antes era fixo e ficava
+  // pedindo pra conectar uma fonte que já estava conectada (com o Integrações em verde).
   const f=d.fonte||{};
-  $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`;
-  $('#fonte-sub').innerHTML=esc(f.sub||'')+`<br><span style="display:inline-block;margin-top:7px;opacity:.72">Como: solte um .csv/.xlsx em <b>contexto/dados/</b> (aba Contexto), ou rode <b>/conectar</b> no Claude Code.</span>`;
+  if(f.conectada){
+    $('#fonte-ch').textContent='Sua realidade conectada';
+    $('#fonte').innerHTML=`<b>${esc(f.titulo||'sua fonte de dados')}</b>`;
+    $('#fonte-sub').innerHTML=esc(f.sub||'')+`<br><span style="display:inline-block;margin-top:7px;opacity:.72">O time lê o dado real daqui. Pra trocar ou atualizar, mexa em <b>contexto/dados/</b>.</span>`;
+  }else{
+    $('#fonte-ch').textContent='Conecte sua realidade';
+    $('#fonte').innerHTML=`Conecte <b>${esc(f.titulo||'sua realidade')}</b>.`;
+    $('#fonte-sub').innerHTML=esc(f.sub||'')+`<br><span style="display:inline-block;margin-top:7px;opacity:.72">Como: solte um .csv/.xlsx em <b>contexto/dados/</b> (aba Contexto), ou rode <b>/conectar</b> no Claude Code.</span>`;
+  }
   if((d.skills||[])[0])$('#ex-skill').textContent=(d.skills[0].cmd||('/'+d.skills[0].slug));
   const pu=$('#pulso');
   if((d.pulso||[]).length){

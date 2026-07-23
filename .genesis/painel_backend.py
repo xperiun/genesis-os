@@ -579,10 +579,9 @@ def integracoes(base):
     # /setup importa marcava a fonte como conectada sem nada estar conectado). A fonte de dados
     # vive em `contexto/dados/`, que é onde o /analisar lê e onde a planilha do dia a dia entra
     # (aparece na aba Contexto, ao lado do knowledge, sob um teto só).
-    dados = base / "contexto" / "dados"
-    tem_dado = any(f.suffix.lower() in (".csv", ".xlsx", ".xls") and f.name.lower() != "readme.md"
-                   for f in dados.rglob("*") if f.is_file()) if dados.is_dir() else False
-    fonte_ok = bool(fonte.get("conectada")) or tem_dado
+    # A decisão mora no `gm.fonte_conectada` (fonte ÚNICA): esta aba e o card do painel já
+    # divergiram uma vez, com o Integrações dizendo "conectado" e o painel pedindo pra conectar.
+    fonte_ok = gm.fonte_conectada(base, fonte)
     return {"conexoes": [
         {"chave": "cerebro", "ic": "🧠", "ok": bool(shutil.which("claude")), "nome": "Claude Code",
          "sub": "O motor do chat e dos builds do time. Roda na SUA assinatura, R$ 0 de token de API."},

@@ -717,6 +717,55 @@ def _sanear_fonte(reco):
     return reco
 
 
+# conectivos que não podem TERMINAR o rótulo: cortar em "... de médio porte que" deixa a
+# frase pendurada. Sai o último token até sobrar palavra com peso.
+_CAUDA_ROTULO = {"que", "e", "de", "da", "do", "em", "no", "na", "com", "pra", "para", "por",
+                 "um", "uma", "numa", "num", "o", "a", "os", "as", "ao", "à", "mas", "ou", "se"}
+
+
+def fonte_conectada(base, fonte):
+    """A fonte está conectada DE VERDADE? Flag explícita `conectada` no meu-os.json (é a
+    /conectar que grava, depois de uma chamada real devolver dado real) OU arquivo de dado
+    em `contexto/dados/`.
+
+    Mora aqui, e não no painel_backend, pra ser FONTE ÚNICA: o card do painel e a aba
+    Integrações liam o estado por caminhos diferentes e divergiam (o Integrações já dizia
+    "conectado" enquanto o painel seguia pedindo pra conectar a mesma fonte)."""
+    if isinstance(fonte, dict) and fonte.get("conectada"):
+        return True
+    d = Path(base) / "contexto" / "dados"
+    if not d.is_dir():
+        return False
+    return any(f.suffix.lower() in (".csv", ".xlsx", ".xls")
+               for f in d.rglob("*") if f.is_file())
+
+
+def _rotulo_perfil(texto, teto=58):
+    """Transforma a 1ª linha do 'entendi' num RÓTULO curto pro topo do painel.
+
+    Era `texto[:60]` cru, que cortava no meio da palavra e aparecia no telão como
+    "Coordenador comercial numa indústria de médio porte que vend". Agora corta em palavra
+    inteira e apara conectivo pendurado, virando "Coordenador comercial numa indústria de
+    médio porte". Prefere quebrar numa vírgula/travessão quando ela chega antes do teto: o
+    primeiro pedaço da frase costuma ser exatamente o cargo."""
+    t = " ".join(_sem_html(texto or "").split())
+    if not t:
+        return ""
+    # a 1ª cláusula já é o rótulo, quando existe. O " que " entra aqui porque abre oração
+    # subordinada ("...de médio porte QUE vende em cinco regiões"): o cargo termina antes dele.
+    for sep in (", ", " · ", " (", " que "):
+        i = t.find(sep)
+        if 12 <= i <= teto:
+            return t[:i].rstrip(" .,;:")
+    if len(t) <= teto:
+        return t.rstrip(" .,;:")
+    corte = t[:teto].rsplit(" ", 1)[0]      # nunca no meio da palavra
+    palavras = corte.split()
+    while len(palavras) > 3 and palavras[-1].lower().strip(".,;:") in _CAUDA_ROTULO:
+        palavras.pop()
+    return " ".join(palavras).rstrip(" .,;:")
+
+
 def _garantir_ds(reco):
     """Enforce: todo OS SEMPRE tem o Guardião Visual (agente slug design-system) E a skill
     /extrair-design-system, os dois obrigatórios (founder). Injeta o que faltar e recalcula.
@@ -1433,6 +1482,10 @@ def painel_dados(base):
                            "desc": desc or _sem_html(r.get("desc", ""))})
     ativo, pulso = _atividade(base, agentes)
     entendi = reco.get("entendi") or []
-    return {"perfil": {"nome": (_sem_html(entendi[0])[:60] if entendi else ""), "resumo": entendi},
-            "agentes": agentes, "skills": skills, "fonte": reco.get("fonte") or {},
+    # a fonte vai com o STATUS junto: sem isso o card do painel era uma CTA fixa e seguia
+    # pedindo "conecte sua realidade" mesmo com a fonte já conectada (planilha no disco).
+    _f = dict(reco.get("fonte") or {})
+    _f["conectada"] = fonte_conectada(base, _f)
+    return {"perfil": {"nome": _rotulo_perfil(entendi[0]) if entendi else "", "resumo": entendi},
+            "agentes": agentes, "skills": skills, "fonte": _f,
             "pulso": pulso, "ativo": ativo}
