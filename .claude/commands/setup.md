@@ -22,10 +22,10 @@ terreno em silêncio e subir a cena.
 
 ## 1. Checar o cérebro (a única coisa que pode travar o fluxo)
 
-Rode:
+Rode (esta linha, exatamente):
 
 ```
-python -c "import shutil; print(shutil.which('claude') or 'FALTANDO')"
+python -c "import shutil,os,glob;w=shutil.which('claude') or shutil.which('claude.cmd');c=[os.path.expandvars(r'%APPDATA%\npm\claude.cmd'),os.path.expandvars(r'%APPDATA%\npm\claude'),*glob.glob(os.path.expanduser('~/AppData/Roaming/npm/claude*')),*glob.glob(os.path.expanduser('~/.npm-global/bin/claude'))];print(w or next((x for x in c if os.path.exists(x)),'FALTANDO'))"
 ```
 
 O Genesis inteiro (entrevista, montagem, chat com os agentes, build) roda pelo comando
@@ -33,10 +33,14 @@ O Genesis inteiro (entrevista, montagem, chat com os agentes, build) roda pelo c
 pra uma entrevista enlatada e um time genérico, e o usuário nunca descobre por quê. Por isso
 esta checagem vem antes de qualquer coisa.
 
+Ela não olha só o PATH: um `claude` recém-instalado costuma existir no disco (`%APPDATA%\npm`)
+mas ainda não estar no PATH do terminal que a extensão abriu, e mandar reabrir a janela nesse
+caso é fricção à toa. A checagem sonda os locais canônicos de instalação antes de desistir.
+
 - **Voltou um caminho:** siga pro passo 2 sem comentar nada. Não anuncie que checou.
 - **Voltou `FALTANDO`:** PARE. Não suba o servidor. Diga exatamente isto e encerre:
 
-  > Antes de começar, um problema: o comando `claude` não está no PATH, e é ele que monta o
+  > Antes de começar, um problema: o comando `claude` não está instalado, e é ele que monta o
   > seu time (na sua assinatura, R$ 0). Instala com `npm i -g @anthropic-ai/claude-code`,
   > fecha e abre o VS Code, e roda `/setup` de novo.
 
@@ -78,6 +82,14 @@ python .genesis/sobe.py
 
 Isso prepara o ambiente (só na primeira vez) e abre o Genesis no navegador, em
 `http://localhost:7799`.
+
+> **Regra dura: `sobe.py` é o entrypoint oficial, não improvise em cima dele.** Ele existe
+> pra instalar as dependências (flask, sdk) e só então subir `servidor_genesis.py` com o cwd
+> certo (é o cwd que decide onde o OS nasce). **Não** rode `servidor_genesis.py` direto, **não**
+> troque de comando, **não** conclua que "o roteiro está desatualizado" e **não** invente um
+> caminho alternativo com `pip`/`flask` na mão. Se um `ls` ou um `cd` falhar, o problema é o
+> cwd, corrija o cwd (rode a partir da raiz do repo) e rode `sobe.py` de novo. Se `sobe.py`
+> em si der erro, mostre o erro cru e pare, não contorne.
 
 ## 4. Falar duas linhas e sair da frente
 

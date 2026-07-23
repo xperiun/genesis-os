@@ -34,6 +34,14 @@ tarefas, o chat com cada agente). O `/setup` é uso único, o `/painel` é o dia
 > **Instrução pro Claude Code:** se este OS ainda não foi montado (não existe a pasta
 > `.claude/agents/`) e o usuário pedir qualquer coisa, oriente ele a rodar **`/setup`
 > primeiro**. Sem o time montado, não há o que delegar. Nunca tente trabalhar antes disso.
+>
+> **Se o `/setup` não estiver disponível no menu de comandos (`/`)**, não trave nem mande o
+> usuário reabrir o VS Code. Comando de projeto só é indexado no início da sessão, então num
+> repo recém-clonado ele pode ainda não aparecer no autocomplete. Isso NÃO impede a execução:
+> quando o usuário pedir pra montar o OS por qualquer via (`/setup`, "monta meu OS", "sobe o
+> localhost", "rode o setup", "clona e roda o setup"), **leia o arquivo
+> [`.claude/commands/setup.md`](.claude/commands/setup.md) e execute o roteiro dele de ponta a
+> ponta**, do jeito que está escrito. O slash command é só um atalho pra esse mesmo roteiro.
 
 No fim, seu OS nasce aqui no repo:
 
