@@ -42,3 +42,8 @@ __pycache__/
 *.pyc
 .venv/
 .scratch/
+
+# Artefato temporário do teste do profiler: o caso "recusa binário" escreve um _x.docx
+# de mentira e não limpa quando o próprio teste falha antes do cleanup. Já viajou pro
+# repo do aluno uma vez (05ca959). Fixture de verdade não começa com _.
+/.genesis/skills-core/analisar/tests/fixtures/_*
