@@ -9,10 +9,12 @@ Três decisões que vieram juntas do port:
   arquivo é o BUILD (botão "põe pra trabalhar").
 - cliente QUENTE por agente, com continuidade de sessão (o agente lembra do papo). O
   flag `novo` recicla a sessão daquele agente (conversa nova começa do zero).
-- a persona (o .agent.md + knowledge) NÃO vai no system_prompt: no Windows o SDK monta o
-  system via argv e a linha estoura (WinError 206). O system fica CURTO no argv, e a
-  persona inteira entra na PRIMEIRA mensagem (stdin, sem limite). A sessão segura a
-  persona nos turnos seguintes.
+- a persona (o .agent.md + knowledge) NÃO vai no system_prompt: ela é grande e cresce com o
+  OS do comprador, e o system viaja no argv, que tem teto no Windows (WinError 206). O
+  system fica enxuto no argv, e a persona inteira entra na PRIMEIRA mensagem (stdin, sem
+  limite). A sessão segura a persona nos turnos seguintes. Atenção: encurtar o system NÃO
+  protege do bug do wrapper `.cmd`, que é por QUEBRA DE LINHA e não por tamanho (um system
+  de 52 chars com `\n` falha igual). Isso quem resolve é o `cli_claude`.
 
 A chave de API sai do ambiente do subprocesso DE PROPÓSITO: sem ela o Claude Code usa o
 login OAuth do comprador e o billing vai pra assinatura. Se o SDK não estiver instalado
@@ -26,16 +28,18 @@ admitir a própria gaiola, no system. Aqui você só lê; pra executar, o dono u
 o terminal. Nunca prometa disparar o que você não pode."""
 import asyncio
 import os
-import shutil
 import threading
+
+import cli_claude
 
 _loop = None
 _loop_pronto = threading.Event()
 _clientes = {}            # slug -> ClaudeSDKClient (quente, com sessão viva)
 
 # O SDK procura um claude.exe "bundled" que não existe; aponta o cli_path pro binário real.
-_CLI = next((p for p in (os.environ.get("CLAUDE_CODE_EXECPATH"), shutil.which("claude"))
-             if p and os.path.exists(p)), None)
+# O `cli_claude` é obrigatório aqui, não cosmético: pelo wrapper claude.CMD do Windows este
+# cliente MORRE em 70,2s no "Control request timeout: initialize" (o porquê está lá).
+_CLI = cli_claude.caminho(os.environ.get("CLAUDE_CODE_EXECPATH"))
 
 # System curto (cabe no argv). A persona real entra na 1ª mensagem via stdin.
 _SYSTEM_CURTO = (

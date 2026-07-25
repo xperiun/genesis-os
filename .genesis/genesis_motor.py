@@ -29,6 +29,8 @@ import time
 import unicodedata
 from pathlib import Path
 
+import cli_claude
+
 # ---- Modelo: quem paga a conta é a ASSINATURA do comprador, então ele escolhe -------------
 # Sem isto o `claude -p` herda o default da máquina dele, e o mesmo produto consome de um
 # jeito num Max e de outro num Pro, sem ninguém enxergar. Pior: o Opus tem cota PRÓPRIA e
@@ -509,7 +511,7 @@ def _claude_cli(prompt, system, tools=None, cwd=None, timeout=180):
       comprador pro chat, pra o agente achar os arquivos dele (producao/, contexto/, ...).
     timeout: teto desta chamada, em segundos. A entrevista passa o que SOBRA do orçamento
       dela (ver _ORCAMENTO_PASSO), pra a soma das tentativas não estourar o teto do cliente."""
-    exe = shutil.which("claude")
+    exe = cli_claude.caminho()   # nunca o wrapper .cmd: ele descarta o --system-prompt calado
     if not exe:
         return None
     import tempfile
@@ -1075,7 +1077,7 @@ def gerar_time(reco, referencia="", modelo=None):
     blocos = [(caminho_rel, conteudo)] e motivo=None quando entregou o time sob medida;
     [] + um MOTIVO_* quando não deu (aí instalar cai nos esboços, e o motivo é o que
     permite a cena dizer a verdade em vez de comemorar um time que não foi escrito)."""
-    exe = shutil.which("claude")
+    exe = cli_claude.caminho()   # idem: pelo .cmd a montagem perde o system e vira genérica
     if not exe:
         return [], MOTIVO_SEM_CLI
     perfil = "\n".join(f"- {_sem_html(e)}" for e in (reco.get("entendi") or [])) or "(sem perfil)"

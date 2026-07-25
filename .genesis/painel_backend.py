@@ -20,6 +20,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import cli_claude
 import genesis_motor as gm
 
 
@@ -141,8 +142,10 @@ def chat(base, slug, mensagens):
     det, persona = persona_chat(base, slug)
     if not det:
         return {"ok": False, "erro": "agente não encontrado"}
-    # system CURTO no argv (o claude no Windows é um .cmd, ~8KB de limite de linha de comando):
-    # a persona e o knowledge base, que podem ser grandes, vão no STDIN (o prompt), sem limite.
+    # system ENXUTO no argv (que tem teto de linha de comando no Windows): a persona e o
+    # knowledge base, que podem ser grandes, vão no STDIN (o prompt), sem limite. Isso é sobre
+    # TAMANHO. O outro problema do Windows, o wrapper .cmd descartando o system inteiro por
+    # causa de quebra de linha, não se resolve encurtando nada: quem resolve é o `cli_claude`.
     system = (
         "Você é um especialista de um time de IA pessoal. Assuma POR COMPLETO a persona "
         "descrita no início da mensagem e responda como ELA: pela lente e método dela, "
@@ -170,7 +173,7 @@ def chat(base, slug, mensagens):
     )
     # erro com CAUSA, não chute: "o claude está no PATH?" quando o problema era timeout
     # mandava o comprador caçar o problema errado (caso real com /titulos).
-    if not shutil.which("claude"):
+    if not cli_claude.caminho():
         return {"ok": False, "erro": "o comando 'claude' não está no PATH. Instale o Claude Code."}
     # tools de leitura + cwd no repo do aluno: o agente LÊ os arquivos do comprador (producao/,
     # contexto/) pra responder com dado real. Só leitura (Read/Grep/Glob); escrita é no build.
@@ -353,7 +356,7 @@ def puxar_site(base, url):
     erro = _url_publica(url)
     if erro:
         return {"ok": False, "erro": erro}
-    exe = shutil.which("claude")
+    exe = cli_claude.caminho()   # nunca o wrapper .cmd (ver cli_claude)
     if not exe:
         return {"ok": False, "erro": "o comando 'claude' não está no PATH"}
     prompt = (
@@ -624,7 +627,7 @@ def integracoes(base):
     # divergiram uma vez, com o Integrações dizendo "conectado" e o painel pedindo pra conectar.
     fonte_ok = gm.fonte_conectada(base, fonte)
     return {"conexoes": [
-        {"chave": "cerebro", "ic": "🧠", "ok": bool(shutil.which("claude")), "nome": "Claude Code",
+        {"chave": "cerebro", "ic": "🧠", "ok": bool(cli_claude.caminho()), "nome": "Claude Code",
          "sub": "O motor do chat e dos builds do time. Roda na SUA assinatura, R$ 0 de token de API."},
         {"chave": "fonte", "ic": "🗄️", "ok": fonte_ok,
          "pendente": bool(fonte.get("titulo")) and not fonte_ok,
@@ -832,8 +835,10 @@ def build_iniciar(base, tarefa, origem=None, contexto="", agente=""):
 def build_parar(base):
     """Encerra o build em andamento (botão '■ Encerrar' do detalhe da task). Antes o botão
     existia na tela e não fazia NADA (não havia endpoint): o único fim possível era o
-    watchdog de 15min. Mata a árvore do processo (o claude no Windows é um shim cmd.exe,
-    matar só o pai deixa o filho vivo)."""
+    watchdog de 15min. Mata a ÁRVORE do processo (`taskkill /T`), não só o pai: o CLI abre
+    processos filhos, e matar só o pai deixa o build vivo trabalhando no repo do dono.
+    (Antes do `cli_claude` havia um motivo a mais, o pai era o próprio `cmd.exe` do wrapper.
+    O motivo mudou, a necessidade do /T não.)"""
     with _TASKS_LOCK:
         if not _BUILD["ativo"]:
             return {"ok": False, "erro": "não tem build rodando"}
@@ -871,7 +876,7 @@ def _build_rodar(base, tarefa, origem, contexto=""):
     _bev("inicio", tarefa[:120])
     _pulso(base, _BUILD.get("agente"), "começou: " + tarefa[:90])
     ok, resultado = False, ""
-    exe = shutil.which("claude")
+    exe = cli_claude.caminho()   # nunca o wrapper .cmd (ver cli_claude)
     if not exe:
         _bev("erro", "o comando claude não está no PATH")
         resultado = "o comando claude não está no PATH"
