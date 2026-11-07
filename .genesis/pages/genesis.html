@@ -1020,7 +1020,8 @@ function aceite(a){ if(!a)return; const el=$('#aceite');
 // terminou, então aqui é só ir pro OS (nada de instalar de novo).
 $('#btn-entrar').addEventListener('click',()=>{ keyclick(.1);
   const base = location.protocol==='file:' ? 'painel.html' : '/painel';  // serve via http OU file
-  location.href = DEMO ? base+'?demo' : base; });
+  // a porta de entrada do painel é o JARVIS (a voz) com o shell em volta: /painel#jarvis
+  location.href = (DEMO ? base+'?demo' : base) + '#jarvis'; });
 
 // ---------- boot ----------
 (async function boot(){

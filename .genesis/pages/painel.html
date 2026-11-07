@@ -2,8 +2,10 @@
 <!-- DS: Control Room (../../agentic-os/docs/design-system-control-room.md) · JARVIS elegante.
      Painel do OS do comprador, SHELL puro: sidebar (marca + arc reactor + nav) + uma view
      por iframe. O router troca a view por hash sem recarregar. Cada view é self-contained
-     (dashboard, agentes, tasks, contextos, skills, integracoes).
-     SEM o X (o orb de voz é só do founder): aqui o home é o Painel. -->
+     (jarvis, dashboard, agentes, tasks, contextos, skills, integracoes).
+     O home é a 1ª view da nav: no template pago é o JARVIS, a porta de VOZ do OS (de
+     fábrica desde 05/11/2026, iframe com allow="microphone; autoplay"); no repo público o
+     bloco marcado sai no publish e o home volta a ser o Painel. -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -134,7 +136,7 @@ a{color:inherit;text-decoration:none}
       </div>
     </div>
     <nav class="side-nav">
-      <a href="#painel" data-view="painel" class="active">
+      <a href="#painel" data-view="painel">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg><span>Painel</span></a>
       <a href="#agentes" data-view="agentes">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Agentes</span></a>
@@ -150,7 +152,7 @@ a{color:inherit;text-decoration:none}
     <div class="side-rodape">Montado pelo <b>Genesis</b>.<br>Roda na sua assinatura.</div>
   </aside>
   <div class="content">
-    <div class="view active" id="v-painel"><iframe data-src="/dashboard" title="Painel"></iframe></div>
+    <div class="view" id="v-painel"><iframe data-src="/dashboard" title="Painel"></iframe></div>
     <div class="view" id="v-agentes"><iframe data-src="/agentes" title="Agentes"></iframe></div>
     <div class="view" id="v-tasks"><iframe data-src="/tasks" title="Tarefas"></iframe></div>
     <div class="view" id="v-contextos"><iframe data-src="/contextos" title="Contexto"></iframe></div>
@@ -160,10 +162,13 @@ a{color:inherit;text-decoration:none}
 </div>
 <script>
 'use strict';
-const VIEWS = ['painel','agentes','tasks','contextos','skills','integracoes'];
+// as views saem do DOM: no template pago a primeira é o JARVIS (a porta de voz); no repo
+// público o bloco marcado como JARVIS é tirado pelo publish e a home volta a ser o Painel
+const VIEWS = [...document.querySelectorAll('.side-nav a[data-view]')].map(a=>a.dataset.view);
+const HOME = VIEWS[0];
 const DEMO=false; // modo demo é só do dev, removido do build do aluno   // /painel?demo cascateia pra todas as views
 function irPara(view){
-  if(!VIEWS.includes(view)) view='painel';
+  if(!VIEWS.includes(view)) view=HOME;
   document.querySelectorAll('.side-nav a[data-view]').forEach(a=>a.classList.toggle('active',a.dataset.view===view));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+view));
   const f=document.querySelector('#v-'+view+' iframe');
@@ -176,7 +181,7 @@ function irPara(view){
 document.querySelectorAll('.side-nav a[data-view]').forEach(a=>
   a.addEventListener('click',e=>{e.preventDefault();irPara(a.dataset.view);}));
 window.addEventListener('hashchange',()=>irPara(location.hash.replace('#','')));
-irPara(location.hash.replace('#','') || 'painel');
+irPara(location.hash.replace('#','') || HOME);
 </script>
 </body>
 </html>

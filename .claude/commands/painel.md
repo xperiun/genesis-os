@@ -1,9 +1,10 @@
 ---
 name: painel
 description: >
-  Abre o painel do OS do usuário no navegador: o time dele em canvas, o chat com cada
-  agente, o board de tarefas, o contexto e as skills. Use quando o usuário chamar /painel,
-  ou disser "abre o painel", "quero ver meu time", "abre meu OS", "mostra as tarefas".
+  Abre o painel do OS do usuário no navegador: a sala de controle (o time dele em canvas,
+  o chat com cada agente, o board de tarefas, o contexto e as skills). Use quando o usuário
+  chamar /painel, ou disser "abre o painel", "quero ver meu time", "abre meu OS", "mostra
+  as tarefas", "quero falar com o OS".
 ---
 
 # /painel, a sala de controle do OS
@@ -30,16 +31,19 @@ Rode em segundo plano (background):
 python .genesis/sobe.py painel
 ```
 
-O servidor sobe em `http://localhost:7799` e já abre direto no painel. (O `painel` vai sem
+O servidor sobe em `http://127.0.0.1:7799` e já abre direto no painel. (O `painel` vai sem
 barra de propósito: barra na frente é manglada pelo Git Bash no Windows; o servidor
-normaliza.) Passe o endereço pro
-usuário:
+normaliza.) Passe o endereço pro usuário:
 
-**http://localhost:7799/painel**
+**http://127.0.0.1:7799/painel**
 
 Se o servidor já estiver no ar (a porta 7799 responde), não suba outro: só passe o endereço.
 Com o OS montado, o `/` também redireciona pro painel, então qualquer aba que caia na home
 vai parar no lugar certo.
+
+Mexeu em `.py` ou no `.env`? Derrube e suba o servidor de novo, o `.env` é lido na subida.
+Depois de subir, Ctrl+F5 na página: o token de segurança é por processo, e a aba que volta do
+cache falha em silêncio em toda ação.
 
 ## 3. Falar uma linha e sair da frente
 

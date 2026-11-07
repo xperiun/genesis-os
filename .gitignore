@@ -37,13 +37,22 @@
 !.env.example
 **/.env
 
+# Runtime da VOZ do JARVIS: mp3 de aceno em cache e amostras de voz. Gerado na máquina,
+# recriado sozinho (o nome leva o hash da voz). A chave do ElevenLabs mora no .env acima.
+/.genesis/jarvis/dados/
+
 # python
 __pycache__/
 *.pyc
 .venv/
 .scratch/
+.scratch-*
 
 # Artefato temporário do teste do profiler: o caso "recusa binário" escreve um _x.docx
 # de mentira e não limpa quando o próprio teste falha antes do cleanup. Já viajou pro
 # repo do aluno uma vez (05ca959). Fixture de verdade não começa com _.
 /.genesis/skills-core/analisar/tests/fixtures/_*
+
+# Template público gerado pelo publish.py --sem-jarvis: espelho descartável, o sync.py refaz.
+# (o _dist/ pago segue versionado como antes, decisão antiga; os dois são regeneráveis.)
+_dist-sem-jarvis/

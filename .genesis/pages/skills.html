@@ -174,7 +174,7 @@ function renderLista(){
       <div class="sk-top"><div class="sk-ico">${esc(s.ic||'⚡')}</div>
         <div class="sk-id"><div class="sk-cmd">${esc(s.cmd||('/'+s.slug))}</div><div class="sk-nome">${esc(s.nome||s.slug)}</div></div>
         ${s.obrigatoria?'<span class="sk-badge">do OS</span>':''}${s.bonus?'<span class="sk-badge">bônus</span>':''}</div>
-      <div class="sk-desc">${esc((s.desc||'').slice(0,140)||'Automação do seu OS.')}</div>
+      <div class="sk-desc">${esc((s.desc||'').replace(/<[^>]*>/g,'').slice(0,140)||'Automação do seu OS.')}</div>
     </div>`).join('')||'<div class="fvazio" style="padding-top:8vh"><span class="em">◇</span>Sem skills ainda. Elas nascem quando você monta o time.</div>';
   document.querySelectorAll('.sk').forEach(el=>el.onclick=()=>abrir(el.dataset.slug));
 }

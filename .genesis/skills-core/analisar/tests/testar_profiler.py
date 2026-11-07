@@ -8,6 +8,7 @@ Rode:  python testar_profiler.py
 Saída: uma linha por caso, e código 1 se qualquer um falhar.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -98,6 +99,39 @@ def caso_pii():
     checar("NÃO sinaliza a coluna de valor comercial", "Valor Compra" not in suspeitas)
 
 
+def caso_amostra_nao_vaza_pii():
+    """
+    A amostra deste script entra no contexto de um modelo. Sinalizar a coluna
+    não protege ninguém: o que protege é o valor sair mascarado. Este caso
+    existe porque a versão anterior mandava até 15 linhas inteiras cruas.
+    """
+    print("\namostra que vai pro modelo  (o valor sai mascarado, não só sinalizado)")
+    caminho = os.path.join(FIXTURES, "_vidas.csv")
+    with open(caminho, "w", encoding="utf-8") as f:
+        f.write("Nome;Documento;Contato;Empresa;Valor\n")
+        f.write("Maria Aparecida Souza;123.456.789-01;maria@orbenk.com.br;Orbenk;R$ 480,00\n")
+        f.write("Joao Pedro Lima;98765432100;(48) 99150-9779;Plansul;R$ 480,00\n")
+        f.write("Ana Claudia Ferreira;111.222.333-44;ana@plansul.com;Plansul;R$ 520,00\n")
+    r = P.perfilar(caminho)
+    # As duas superfícies que chegam no modelo: o relatório de texto e o JSON.
+    corpo = P.renderizar(r) + json.dumps(r, ensure_ascii=False, default=str)
+
+    checar("nenhum CPF sobrevive na saída", "123.456.789-01" not in corpo
+           and "98765432100" not in corpo)
+    checar("nenhum e-mail sobrevive na saída", "maria@orbenk.com.br" not in corpo
+           and "ana@plansul.com" not in corpo)
+    checar("nenhum telefone sobrevive na saída", "99150-9779" not in corpo)
+    checar("nenhum nome de pessoa sobrevive na saída",
+           "Maria Aparecida" not in corpo and "Joao Pedro" not in corpo
+           and "Ana Claudia" not in corpo)
+    checar("o nome vira iniciais, não some", "M. A. S." in corpo)
+    checar("e-mail em coluna de nome mantém o formato, não vira inicial",
+           "m***@orbenk.com.br" in corpo, corpo[:0] or "formato perdido")
+    checar("o dado de negócio continua intacto", "Orbenk" in corpo
+           and "Plansul" in corpo and "480" in corpo)
+    os.remove(caminho)
+
+
 def caso_relatorio_e_fixo():
     print("\ntamanho do relatório  (tem que ser fixo, não crescer com o arquivo)")
     import openpyxl
@@ -184,7 +218,7 @@ if __name__ == "__main__":
         print("fixtures ausentes. Rode antes: python gerar_fixtures.py")
         sys.exit(1)
     for caso in (caso_vendas_alvorada, caso_coluna_mista, caso_ambiguo, caso_merge,
-                 caso_csv_br, caso_pii, caso_relatorio_e_fixo, caso_recusa_binario,
+                 caso_csv_br, caso_pii, caso_amostra_nao_vaza_pii, caso_relatorio_e_fixo, caso_recusa_binario,
                  caso_reconciliacao):
         caso()
     print("\n" + "=" * 60)

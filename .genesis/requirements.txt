@@ -3,3 +3,6 @@ flask>=3.0
 # Chat de agente com streaming + sessão viva, na assinatura do comprador (R$ 0 de token).
 # Sem ele o chat cai no single-shot via `claude -p` (funciona, sem streaming nem memória).
 claude-agent-sdk>=0.2,<0.3
+# A voz do JARVIS (ElevenLabs) sai por HTTP com conexão quente. Sem a chave no .env a voz
+# cai pro navegador; sem o pacote, idem. Nunca trava o boot.
+requests>=2.31

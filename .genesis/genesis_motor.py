@@ -1136,6 +1136,27 @@ def _corta(s, n=130):
     return (s[:n - 3].rstrip() + "...") if len(s) > n else s
 
 
+_AQUI_MOTOR = Path(__file__).resolve().parent
+
+
+def _tem_jarvis():
+    """O JARVIS (a voz do painel) viaja só no template pago; o repo público sai sem
+    `.genesis/jarvis/`. Os textos que o instalar() escreve olham o disco pra não prometer
+    uma aba que não existe."""
+    return (_AQUI_MOTOR / "jarvis").is_dir() and (_AQUI_MOTOR / "pages" / "jarvis.html").exists()
+
+
+def _texto_painel_readme():
+    if _tem_jarvis():
+        return ("Pra ver o OS funcionando, rode `/painel` no Claude Code: abre "
+                "`http://127.0.0.1:7799/painel#jarvis`, o JARVIS, a interface de voz do seu OS (você "
+                "fala, ele responde falando, com o seu contexto na mão). O time, as tarefas e o chat "
+                "com cada agente ficam na barra lateral." + chr(10))
+    return ("Pra ver o OS funcionando, rode `/painel` no Claude Code: abre "
+            "`http://127.0.0.1:7799/painel`, a sala de controle (o time, as tarefas, o contexto, as "
+            "skills e o chat com cada agente)." + chr(10))
+
+
 def _claude_md(reco, base):
     """O CLAUDE.md do OS: o arquivo que o Claude Code LÊ toda sessão. É o recheio VIVO.
     O time e as skills são LIDOS do disco (o que foi de fato gerado/instalado), pra o
@@ -1177,6 +1198,14 @@ def _claude_md(reco, base):
           "`contexto/`, `producao/`). Na dúvida sobre a subpasta, use o tema da skill.",
           "- O dado de entrada vem de `contexto/dados/` (planilhas) e `contexto/referencia/` (docs do negócio).",
           "- Consistência visual é inegociável: todo entregável visual passa pelo agente `design-system`."]
+    if _tem_jarvis():
+        L += ["- **O painel do OS abre com `/painel`**, em `http://127.0.0.1:7799/painel#jarvis`. A porta "
+              "de entrada é o JARVIS, a interface de voz: o dono fala, o OS ouve e responde falando, "
+              "lendo este arquivo e o `contexto/`. As outras abas (time, tarefas, contexto, skills, "
+              "integrações) ficam na barra lateral."]
+    else:
+        L += ["- **O painel do OS abre com `/painel`** (`http://127.0.0.1:7799/painel`): o time, as "
+              "tarefas, o contexto, as skills e o chat com cada agente."]
 
     # FERRAMENTAS JÁ CONECTADAS. Sem esta seção o OS fica honesto porém CEGO: com o GA4
     # ligado (cliente em scripts/lib/ga4.py + credencial no .env), a pergunta "quantas visitas
@@ -1386,7 +1415,8 @@ def instalar(reco, base, modelo=None):
         "- `producao/`: onde as entregas do seu time caem\n"
         "- `.claude/skills/`: suas skills sob medida\n"
         "- `meu-os.json`: o manifesto do OS\n\n"
-        "O agente `design-system` é obrigatório: garante que todo entregável visual saia coeso.\n",
+        "O agente `design-system` é obrigatório: garante que todo entregável visual saia coeso.\n\n"
+        + _texto_painel_readme(),
         encoding="utf-8")
 
     # contexto/perfil.md — o RECHEIO

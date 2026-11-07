@@ -62,6 +62,64 @@ SUSPEITA_PII = re.compile(
     r"agência|cartao|cartão|nascimento)\b", re.I
 )
 
+# Máscara por VALOR, não por nome de coluna. O SUSPEITA_PII acima só sinaliza a
+# coluna; ele não protege nada sozinho, e o nome da coluna mente com frequência
+# ("Documento", "Contato", "Col_7"). Toda amostra que sai deste script entra no
+# contexto de um modelo, então o dado identificado é mascarado no valor, sempre,
+# independente de como a coluna se chama. Mesmas regras da MascaraPII do
+# reconciliar.py, duplicadas de propósito: cada script aqui roda sozinho.
+_PII_CPF = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")
+_PII_CNPJ = re.compile(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b")
+_PII_EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b")
+_PII_TELEFONE = re.compile(
+    r"(?<![\d\w])(?:\+?55[\s-]?)?\(?\d{2}\)?[\s-]?9?\d{4}[-\s]?\d{4}(?!\d)"
+)
+
+
+def _mascarar(valor):
+    """Esconde dado pessoal preservando o formato, pra a amostra continuar útil."""
+    t = str(valor)
+    t = _PII_CNPJ.sub("**.***.***/****-**", t)
+    t = _PII_CPF.sub("***.***.***-**", t)
+    t = _PII_EMAIL.sub(lambda m: m.group(0)[0] + "***@" + m.group(0).split("@")[1], t)
+    t = _PII_TELEFONE.sub("(**) *****-****", t)
+    return t
+
+
+# Nome de pessoa não tem formato, então regex de valor não pega: a única pista
+# confiável é o cabeçalho. Coluna que se declara nome de gente tem o valor
+# reduzido a iniciais na amostra, o que preserva o que a amostra serve pra
+# mostrar (cardinalidade, formato, se há linha vazia) e não entrega a pessoa.
+SUSPEITA_NOME = re.compile(
+    r"\b(nome|funcionario|funcionário|colaborador|beneficiario|beneficiário|"
+    r"titular|dependente|segurado|associado|paciente|responsavel|responsável|"
+    r"contato|razao social|razão social)\b", re.I
+)
+
+
+def _iniciais(valor):
+    """'Maria Aparecida Souza' vira 'M. A. S.'. Vazio continua vazio."""
+    partes = [p for p in str(valor).split() if p]
+    if not partes:
+        return ""
+    return " ".join(p[0].upper() + "." for p in partes[:4])
+
+
+def _ocultar(valor, coluna_de_nome):
+    """
+    Máscara por valor primeiro, iniciais só como último recurso.
+
+    A ordem importa: uma coluna chamada "Contato" casa com SUSPEITA_NOME e
+    costuma guardar e-mail ou telefone. Reduzir isso a iniciais devolve lixo
+    ("(. 9.") e ainda perde a informação de formato que a amostra existe pra
+    mostrar. Então: se a máscara estruturada reconheceu o valor, ela vence.
+    """
+    t = str(valor)
+    mascarado = _mascarar(t)
+    if mascarado != t:
+        return mascarado
+    return _iniciais(t) if coluna_de_nome else mascarado
+
 
 # ---------------------------------------------------------------- utilidades
 
@@ -461,7 +519,12 @@ def perfilar(caminho, aba_pedida=None):
         valores_limpos = [l[j] if j < len(l) else None for l in limpas]
         num = _perfil_numerico(valores_limpos)
         dat = _perfil_data(valores_limpos)
-        amostra = [str(v) for v in valores_limpos if not _vazio(v)][:4]
+        e_nome = bool(SUSPEITA_NOME.search(_norm(nome)))
+        amostra = [
+            _ocultar(v, e_nome) for v in valores_limpos if not _vazio(v)
+        ][:4]
+        # possivel_pii marca a coluna pelo NOME, o que é sinal e não proteção.
+        # A proteção é a máscara por valor, que já rodou na linha acima.
         colunas.append({
             "indice": j,
             "nome": nome,
@@ -474,8 +537,16 @@ def perfilar(caminho, aba_pedida=None):
     # Amostra estratificada: topo, miolo e fim, sem repetir linha quando o
     # arquivo é pequeno demais pra ter três estratos distintos. Fixa, não
     # aleatória, pra o relatório ser reprodutível entre execuções.
+    # Índices das colunas que se declaram nome de pessoa, pra reduzir a iniciais.
+    col_nome = {j for j, nm in enumerate(nomes) if SUSPEITA_NOME.search(_norm(nm))}
+
+    def _celula(j, c):
+        if _vazio(c):
+            return ""
+        return _ocultar(c, j in col_nome)
+
     def _fatiar(ls):
-        return [[("" if _vazio(c) else str(c)) for c in l][:8] for l in ls]
+        return [[_celula(j, c) for j, c in enumerate(l)][:8] for l in ls]
 
     n = len(limpas)
     if n <= 12:
@@ -488,7 +559,9 @@ def perfilar(caminho, aba_pedida=None):
             "fim": range(n - 5, n),
         }
     amostra = {k: _fatiar([limpas[i] for i in v]) for k, v in faixas.items()}
-    amostra["agregacao"] = [a["conteudo"] for a in agregacoes[:TETO_AMOSTRA]]
+    amostra["agregacao"] = [
+        [_mascarar(c) for c in a["conteudo"]] for a in agregacoes[:TETO_AMOSTRA]
+    ]
 
     try:
         import pandas  # noqa: F401
@@ -666,7 +739,8 @@ def renderizar(rel):
     if rel["agregacoes"]:
         o.append("LINHAS DE AGREGAÇÃO ENCONTRADAS (excluir do cálculo, usar pra conferir)")
         for ag in rel["agregacoes"]:
-            o.append(f"  - {' | '.join(x for x in ag['conteudo'] if x)[:70]}")
+            linha_ag = " | ".join(_mascarar(x) for x in ag["conteudo"] if x)
+            o.append(f"  - {linha_ag[:70]}")
         if rel["agregacoes_omitidas"]:
             o.append(f"  ... e mais {rel['agregacoes_omitidas']}")
         o.append("")

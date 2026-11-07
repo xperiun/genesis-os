@@ -25,7 +25,13 @@ A GAIOLA HONESTA (caso real do founder, 2026-07-16): o agente do chat oferecia "
 eu rode /titulos agora?" sem ter como executar skill nenhuma, e a tentativa dava erro. O
 conserto não é dar mais poder ao chat (isso reabre o risco todo): é ensinar o agente a
 admitir a própria gaiola, no system. Aqui você só lê; pra executar, o dono usa o build ou
-o terminal. Nunca prometa disparar o que você não pode."""
+o terminal. Nunca prometa disparar o que você não pode.
+
+O JARVIS (a porta de voz do painel) usa este mesmo motor com três diferenças, todas por
+parâmetro: system próprio (`sistema`), modelo opcional (`modelo`) e PRÉ-AQUECIMENTO
+(`aquecer()`): a sessão sobe quando a página abre, antes de o dono falar. O aquecimento é
+o que criou a noção de sessão VIRGEM (cliente vivo que ainda não recebeu persona), e é por
+ela que a persona é enviada na primeira fala real, não no nascimento do cliente."""
 import asyncio
 import os
 import threading
@@ -35,6 +41,9 @@ import cli_claude
 _loop = None
 _loop_pronto = threading.Event()
 _clientes = {}            # slug -> ClaudeSDKClient (quente, com sessão viva)
+_virgens = set()          # slugs com cliente vivo que ainda não recebeu persona nem turno
+_aquecendo = set()        # slugs com aquecimento EM VOO (ver aquecer: evita dois clientes)
+_travas = {}              # slug -> asyncio.Lock: um turno por vez por sessão
 
 # O SDK procura um claude.exe "bundled" que não existe; aponta o cli_path pro binário real.
 # O `cli_claude` é obrigatório aqui, não cosmético: pelo wrapper claude.CMD do Windows este
@@ -93,84 +102,150 @@ def _garantir_worker():
     _loop_pronto.wait(10)
 
 
-async def _novo_cliente(base):
+def _trava(slug):
+    """Uma trava POR SESSÃO. Um ClaudeSDKClient tem UMA conversa: dois turnos ao mesmo tempo
+    no mesmo slug intercalam query() com receive_response() e PENDURAM a sessão pra sempre,
+    sem erro no log (acontece quando o dono recarrega no meio da resposta, abre duas abas,
+    ou quando um teste dispara em rajada). O segundo turno espera o primeiro. Criada dentro
+    do loop do worker, que é onde ela é usada."""
+    t = _travas.get(slug)
+    if t is None:
+        t = _travas[slug] = asyncio.Lock()
+    return t
+
+
+async def _novo_cliente(base, sistema=None, modelo=None):
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
     # env = tudo do processo MENOS as chaves de API: sem elas, o Claude Code usa o OAuth
     # do comprador (billing na assinatura dele). Preserva PATH e CLAUDE_CODE_EXECPATH.
     env = {k: v for k, v in os.environ.items()
            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
+    kw = {}
+    if modelo:                           # só se alguém forçar (JARVIS_MODELO); o padrão herda
+        kw["model"] = modelo
     opts = ClaudeAgentOptions(
         cwd=str(base),                   # o repo do comprador: é ele que o agente lê
         env=env,
         cli_path=_CLI,
-        system_prompt=_SYSTEM_CURTO,     # CURTO (a persona grande estouraria o argv)
+        system_prompt=sistema or _SYSTEM_CURTO,  # CURTO (a persona grande estouraria o argv)
         setting_sources=[],              # sem settings do projeto (init barato, sem hooks)
         allowed_tools=["Read", "Grep", "Glob"],  # LÊ o repo; sem Write/Bash (gaiola)
         permission_mode="default",
         include_partial_messages=True,   # streaming token a token
+        **kw,
     )
     c = ClaudeSDKClient(opts)
     await c.connect()
     return c
 
 
-async def _responder(slug, persona, mensagem, novo, ao_texto, base):
+async def _responder(slug, persona, mensagem, novo, ao_texto, base, sistema=None, modelo=None):
     from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock
     global _clientes
-    if novo and slug in _clientes:
-        try:
-            await _clientes[slug].disconnect()
-        except Exception:
-            pass
-        _clientes.pop(slug, None)
-    c = _clientes.get(slug)
-    criou = c is None
-    if criou:
-        c = await _novo_cliente(base)
-        _clientes[slug] = c
+    async with _trava(slug):
+        # `novo` recicla a sessão, MENOS quando ela ainda é virgem (pré-aquecida e sem nenhum
+        # turno): aí reciclar jogaria fora justamente o boot que o aquecimento já pagou, e a
+        # 1ª fala voltaria a custar o que custava.
+        if novo and slug in _clientes and slug not in _virgens:
+            try:
+                await _clientes[slug].disconnect()
+            except Exception:
+                pass
+            _clientes.pop(slug, None)
+        c = _clientes.get(slug)
+        if c is None:
+            c = await _novo_cliente(base, sistema, modelo)
+            _clientes[slug] = c
+            _virgens.add(slug)
 
-    # cliente novo (1ª mensagem da sessão) leva a persona inteira colada na frente;
-    # nos turnos seguintes a sessão já lembra dela, manda só a mensagem.
-    prompt = (persona + _SEP + mensagem) if criou else mensagem
+        # a 1ª mensagem da sessão leva a persona inteira colada na frente; nos turnos seguintes
+        # a sessão já lembra dela, manda só a mensagem. O gatilho é a sessão estar VIRGEM, não
+        # o cliente ter acabado de nascer: com pré-aquecimento o cliente nasce antes da fala, e
+        # amarrar a persona ao nascimento dele a faria nunca ser enviada.
+        manda_persona = slug in _virgens
+        _virgens.discard(slug)
+        prompt = (persona + _SEP + mensagem) if manda_persona else mensagem
 
-    partes, streamou = [], False
-    await c.query(prompt)
-    async for m in c.receive_response():
-        if type(m).__name__ == "StreamEvent":
-            ev = getattr(m, "event", None) or {}
-            if ev.get("type") == "content_block_delta":
-                d = (ev.get("delta") or {}).get("text")
-                if d:
-                    streamou = True
-                    partes.append(d)
-                    if ao_texto:
-                        ao_texto(d)
-        elif isinstance(m, AssistantMessage):
-            if not streamou:  # sem partial disponível: emite o bloco inteiro de uma vez
-                for b in m.content:
-                    if isinstance(b, TextBlock) and b.text:
-                        partes.append(b.text)
+        partes, streamou = [], False
+        await c.query(prompt)
+        async for m in c.receive_response():
+            if type(m).__name__ == "StreamEvent":
+                ev = getattr(m, "event", None) or {}
+                if ev.get("type") == "content_block_delta":
+                    d = (ev.get("delta") or {}).get("text")
+                    if d:
+                        streamou = True
+                        partes.append(d)
                         if ao_texto:
-                            ao_texto(b.text)
-        elif isinstance(m, ResultMessage):
-            break
-    return "".join(partes)
+                            ao_texto(d)
+            elif isinstance(m, AssistantMessage):
+                if not streamou:  # sem partial disponível: emite o bloco inteiro de uma vez
+                    for b in m.content:
+                        if isinstance(b, TextBlock) and b.text:
+                            partes.append(b.text)
+                            if ao_texto:
+                                ao_texto(b.text)
+            elif isinstance(m, ResultMessage):
+                break
+        return "".join(partes)
 
 
-def responder(slug, persona, mensagem, base, novo=False, ao_texto=None):
+def responder(slug, persona, mensagem, base, novo=False, ao_texto=None,
+              sistema=None, modelo=None, teto=180):
     """Bloqueante: manda `mensagem` pro agente NA ASSINATURA, streama via ao_texto,
     devolve o texto completo. Levanta exceção se o SDK falhar (o servidor cai pro
     single-shot do painel_backend). Um erro no meio da sessão descarta o cliente
-    daquele agente, pra próxima mensagem nascer numa sessão limpa."""
+    daquele agente, pra próxima mensagem nascer numa sessão limpa.
+
+    `sistema`/`modelo` só valem quando a sessão NASCE (o cliente é quente por slug); são o
+    que deixa o JARVIS ter system próprio sem mexer no chat do time. E eles precisam chegar
+    nos DOIS pontos que criam cliente (aqui e em `aquecer`), senão o JARVIS acorda com o
+    system do agente do time."""
     _garantir_worker()
     fut = asyncio.run_coroutine_threadsafe(
-        _responder(slug, persona, (mensagem or "").strip(), bool(novo), ao_texto, base),
+        _responder(slug, persona, (mensagem or "").strip(), bool(novo), ao_texto, base,
+                   sistema, modelo),
         _loop)
     try:
-        return fut.result(timeout=180)
+        return fut.result(timeout=teto)
     except Exception:
         resetar(slug)   # sessão possivelmente quebrada: recicla pra não travar o agente
         raise
+
+
+async def _aquecer(slug, base, sistema, modelo):
+    try:
+        if _clientes.get(slug) is None:
+            _clientes[slug] = await _novo_cliente(base, sistema, modelo)
+            _virgens.add(slug)
+    finally:
+        _aquecendo.discard(slug)
+
+
+def aquecer(slug, base, sistema=None, modelo=None):
+    """Sobe a sessão ANTES de ter o que perguntar, e volta na hora (não bloqueia).
+
+    O boot do Claude Code custa alguns segundos, e numa interface de VOZ ele caía todo na
+    primeira fala (8,8s contra 3,7s das seguintes, medido em 25/07). Chamando isto quando a
+    página abre, esse custo corre enquanto o dono ainda está pondo o fone: quando ele fala,
+    a sessão já está de pé. Falhar aqui é inofensivo: a fala seguinte cria o cliente do
+    jeito normal, só sem o adiantamento.
+
+    O flag `_aquecendo` existe porque o GET /jarvis roda TODA vez que a view abre (é a view
+    padrão do painel: recarregar, trocar de aba e voltar, abrir em tela cheia). Dois GETs
+    quase simultâneos agendavam dois aquecimentos, e o segundo cliente sobrescrevia o
+    primeiro no dicionário: sobrava um processo do CLI vivo que ninguém apontava mais."""
+    if not disponivel() or _clientes.get(slug) is not None or slug in _aquecendo:
+        return False
+    _aquecendo.add(slug)
+    _garantir_worker()
+    asyncio.run_coroutine_threadsafe(_aquecer(slug, str(base), sistema, modelo), _loop)
+    return True
+
+
+def sessao_viva(slug):
+    """True se existe cliente quente pra esse slug (diagnóstico do /api/jarvis/estado)."""
+    return _clientes.get(slug) is not None
 
 
 async def _desconectar(slug):
@@ -184,5 +259,6 @@ async def _desconectar(slug):
 
 def resetar(slug):
     """Encerra a sessão viva daquele agente (conversa nova começa do zero)."""
+    _virgens.discard(slug)
     if _clientes.get(slug) is not None and _loop is not None:
         asyncio.run_coroutine_threadsafe(_desconectar(slug), _loop)

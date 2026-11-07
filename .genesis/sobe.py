@@ -25,7 +25,9 @@ def _tem(mod):
 # módulo importável -> pacote pip (nem sempre é o mesmo nome). O claude-agent-sdk é o
 # motor do chat streaming com sessão; sem ele o chat cai no single-shot (funciona, mas
 # sem streaming nem memória de conversa), então a falha de instalação NÃO trava o boot.
-_DEPS = {"flask": "flask", "claude_agent_sdk": "claude-agent-sdk>=0.2,<0.3"}
+# `requests` é a voz do JARVIS (ElevenLabs): sem ele a voz cai pro navegador, também sem travar.
+_DEPS = {"flask": "flask", "claude_agent_sdk": "claude-agent-sdk>=0.2,<0.3",
+         "requests": "requests>=2.31"}
 
 
 def main():

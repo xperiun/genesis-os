@@ -171,6 +171,8 @@
 'use strict';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+// o perfil vem do motor com <b> de propósito (o reveal do Genesis mostra negrito): escapa tudo e libera só b/strong
+const rich=s=>esc(s).replace(/&lt;(\/?)(b|strong)&gt;/g,'<$1$2>');
 const DEMO=false; // modo demo é só do dev, removido do build do aluno
 function relogio(){$('#relogio').textContent=new Date().toLocaleTimeString('pt-BR');}
 setInterval(relogio,1000);relogio();
@@ -186,7 +188,7 @@ function render(d){
   $('#kpi-pulso').classList.toggle('viva',ativo);
   const p=d.perfil||{}, resumo=p.resumo||[];
   $('#perfil-nome').textContent=p.nome||'Seu OS';
-  $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${esc(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
+  $('#perfil-lista').innerHTML=resumo.length?resumo.map(e=>`<div>${rich(e)}</div>`).join(''):'<div class="vazio" style="padding-left:0">Seu perfil aparece aqui depois que você monta o time.</div>';
   // o card SEGUE o estado: já conectado vira confirmação, não CTA. Antes era fixo e ficava
   // pedindo pra conectar uma fonte que já estava conectada (com o Integrações em verde).
   const f=d.fonte||{};

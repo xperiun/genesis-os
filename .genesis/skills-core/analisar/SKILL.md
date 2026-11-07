@@ -113,6 +113,22 @@ conferência possível, **diga isso em voz alta** e trate o número como estimat
    CPF, e-mail, telefone e salário não aparecem inteiros. Isso não é bug, é risco
    jurídico, e a tela pode estar sendo projetada ou gravada.
 
+   **O relatório do profiler já sai mascarado, e isso é garantia, não cortesia.**
+   A amostra que ele imprime (linhas estratificadas e exemplos por coluna) entra
+   no seu contexto, então ela passa por máscara por VALOR antes de existir: CPF,
+   CNPJ, e-mail e telefone viram formato preservado sem conteúdo, e coluna que se
+   declara nome de pessoa vira iniciais (`Maria Aparecida Souza` vira `M. A. S.`).
+   Marcar a coluna com `possivel_pii` é sinal, não proteção: o nome da coluna
+   mente com frequência (`Documento`, `Contato`, `Col_7`). Regressão coberta em
+   `tests/testar_profiler.py`, caso `caso_amostra_nao_vaza_pii`.
+
+   **O que a máscara NÃO cobre, e você precisa saber ao afirmar qualquer coisa
+   sobre isso:** nome de empresa, domínio de e-mail, endereço escrito por extenso
+   e qualquer identificador que só é identificador dentro do negócio (matrícula,
+   número de apólice). Se o arquivo tiver dado de terceiro sob contrato, a
+   máscara reduz a exposição e não a zera. Nesse caso o caminho é o arquivo não
+   sair da máquina: rode o script sobre ele e traga só o resultado agregado.
+
 4. **O script fica.** Ele mora em `producao/analises/` e roda de novo mês que vem
    com o arquivo novo. A pessoa não ganhou uma resposta, ganhou um analisador.
    Diga isso a ela.

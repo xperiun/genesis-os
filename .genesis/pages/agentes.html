@@ -282,7 +282,7 @@ function nodeHTML(nd){
   const a=nd.data, cor=CORES[(nd.i||0)%CORES.length];
   return `<div class="ag-top"><div class="ag-ico">${esc(a.ic||'•')}</div>
       <div class="ag-id"><h3>${esc(a.nome)}</h3><div class="cargo">especialista do time</div></div></div>
-    <div class="ag-desc">${esc((a.desc||'').slice(0,150)||'Especialista sob medida do seu OS.')}</div>
+    <div class="ag-desc">${esc((a.desc||'').replace(/<[^>]*>/g,'').slice(0,150)||'Especialista sob medida do seu OS.')}</div>
     ${a.live&&a.fazendo?`<div class="ag-doing"><b>Em ação</b>${esc(a.fazendo)}</div>`:
       `<div class="ag-foot"><span><i class="dot ${a.live?'vivo':''}" style="${a.live?'':'background:'+cor+';opacity:.5'}"></i>${a.live?'EM AÇÃO':'PRONTO'}</span><span class="chat-hint">💬 falar</span></div>`}`;
 }

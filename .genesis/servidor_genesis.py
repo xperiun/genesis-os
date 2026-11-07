@@ -9,11 +9,14 @@ O Claude Code roda isto e a cena do Genesis abre no navegador.
 O cérebro da entrevista E da montagem é o CLAUDE CODE do comprador (na assinatura dele,
 R$ 0, sem chave paga). O OS nasce na RAIZ do repo (base = cwd, ou a env GENESIS_BASE).
 """
+import base64
 import json
 import os
 import queue
+import re
 import secrets
 import sys
+import time
 import webbrowser
 from pathlib import Path
 from threading import Lock, Thread, Timer
@@ -27,14 +30,28 @@ for cand in (AQUI, AQUI.parent / "nucleo"):
     if (cand / "genesis_motor.py").exists():
         sys.path.insert(0, str(cand))
         break
-import chat_sdk  # noqa: E402
-import genesis_motor  # noqa: E402
-import painel_backend as pb  # noqa: E402
-
 # O OS do comprador nasce na RAIZ do repo dele. Rodando `python .genesis/servidor_genesis.py`
 # da raiz, cwd = raiz do repo. Dá pra forçar com a env GENESIS_BASE.
 BASE = Path(os.environ.get("GENESIS_BASE", Path.cwd())).resolve()
 PORTA = int(os.environ.get("GENESIS_PORTA", "7799"))
+# a voz lê o .env da RAIZ do repo do comprador: fixa a base ANTES do import do pacote jarvis
+os.environ.setdefault("GENESIS_BASE", str(BASE))
+
+import chat_sdk  # noqa: E402
+import genesis_motor  # noqa: E402
+import painel_backend as pb  # noqa: E402
+# O JARVIS (a voz) é OPCIONAL por ausência do módulo: o template pago leva `.genesis/jarvis/`
+# e `pages/jarvis.html`; o repo público (a isca gratuita) sai sem os dois (publish.py
+# --sem-jarvis), e aí as rotas /jarvis e /api/jarvis/* simplesmente não nascem. Nada de
+# flag pra lembrar: o servidor olha o disco.
+try:
+    from jarvis import fillers as jarvis_fillers  # noqa: E402
+    from jarvis import mouth as jarvis_mouth  # noqa: E402
+    JARVIS = (PAGES / "jarvis.html").exists()
+except ImportError:
+    jarvis_fillers = jarvis_mouth = None
+    JARVIS = False
+HOME_PAINEL = "/painel#jarvis" if JARVIS else "/painel"   # a porta de entrada do OS montado
 
 app = Flask("genesis")
 _estado = {"status": "idle", "caminho": None, "erro": None}
@@ -109,8 +126,11 @@ def _os_montado():
 def home():
     # OS montado -> painel direto (reabrir o localhost não pode cair na entrevista de novo).
     # Ainda não montado -> a cena. Pra FORÇAR a cena num OS já montado (remontar), use /montar.
+    # A porta de entrada do OS montado é /painel#jarvis: o JARVIS com o shell em volta
+    # (sidebar, nav, as outras views a um clique). O /jarvis cru é a página NUA, que existe
+    # só pra ser o src do iframe e o "abrir em tela cheia". Não se entra por ele.
     if _os_montado():
-        return redirect("/painel", code=302)
+        return redirect(HOME_PAINEL, code=302)
     return _pagina("genesis.html")
 
 
@@ -167,6 +187,297 @@ def v_skills():
 @app.get("/integracoes")
 def v_integracoes():
     return _pagina("integracoes.html")
+
+
+# --- JARVIS: a superfície de VOZ (o dono fala, o OS responde falando) -------------
+# A view é a home do painel. Ela OUVE no navegador (Web Speech, grátis e local) e FALA pelo
+# ElevenLabs (o seam em jarvis/mouth.py) com a voz do próprio navegador como fuga. O
+# cérebro é o mesmo do chat de agente (SDK na assinatura do comprador, leitura read-only do
+# repo), com persona própria: JARVIS não é um especialista do time, é a porta de voz pro
+# OS inteiro, e responde CURTO porque a resposta vai ser LIDA EM VOZ ALTA.
+# Este servidor NÃO sabe o que é ElevenLabs: ele pede mp3 ao mouth e repassa.
+
+_JARVIS_SLUG = "__jarvis__"   # sessão própria no chat_sdk; não é um agente do time
+
+_JARVIS_PERSONA_BASE = """=== SUA PERSONA (assuma isto por completo) ===
+Você é o JARVIS deste OS: a interface de VOZ do dono. Não é um especialista do time dele,
+é a porta de entrada falada pro OS inteiro (contexto, produção, o que o time já montou).
+
+Como você fala (isto é lei, a sua resposta vai ser LIDA EM VOZ ALTA por um sintetizador):
+- CURTO. Duas a quatro frases na maioria das vezes. Se a resposta é um número, comece por
+  ele. Nunca despeje lista longa: fale o essencial e ofereça o resto ("quer o detalhe?").
+- A PRIMEIRA FRASE tem no máximo doze palavras. Frase curta fecha antes, a voz entra antes.
+- Texto corrido, sem markdown: nada de asterisco, hashtag, bullet, tabela ou emoji. Nada
+  disso soa em voz alta, só vira ruído.
+- Número falado por extenso quando ajuda ("um vírgula dois milhão"), sem sigla críptica.
+- Português do Brasil, direto e caloroso, sem corporativês, sem travessão em prosa, sem
+  abertura de chatbot ("claro!", "com certeza!", "boa pergunta"). Responda e pare.
+- Trate o dono na segunda pessoa. Você pode ter personalidade e ser levemente seco.
+
+O que você faz: você LÊ o repositório do dono (Read, Grep, Glob) pra responder com o dado
+real na mão: contexto/, producao/, CLAUDE.md, as planilhas e relatórios dele.
+
+MAS LEIA SÓ QUANDO A PERGUNTA PEDIR DADO. Isto é uma conversa por voz, e cada arquivo que
+você abre é silêncio na cara do dono esperando. Saudação, papo, pergunta sobre você mesmo
+ou sobre o que você faz: responda DIRETO, sem abrir nada. Só vá ao disco quando a resposta
+depender de um número, um nome ou um conteúdo que só existe lá. Aí sim, abra e leia antes
+de falar: NUNCA invente número, data ou fato. Se não achou, diga que não achou, em uma
+frase.
+
+SUA GAIOLA (seja honesto sobre ela): aqui você SÓ LÊ. Não executa skill, não escreve
+arquivo, não roda comando. Nunca prometa disparar nada. Quando o pedido exigir produzir
+algo, diga o caminho real: o board de tarefas do painel, ou a skill no Claude Code dele.
+"""
+
+# Num template virgem (ninguém rodou o /setup ainda) não existe time, perfil nem fonte. A
+# persona precisa degradar com honestidade: dizer que o OS não foi montado e apontar o
+# caminho, nunca inventar um negócio pra preencher o silêncio.
+_JARVIS_NAO_MONTADO = """
+=== ESTADO DO OS: AINDA NÃO MONTADO ===
+Este OS ainda não foi montado: não existe time em .claude/agents/, nem perfil, nem fonte
+de dados. Se o dono perguntar sobre o negócio dele, o time, os dados ou a produção, diga em
+uma frase que o OS ainda não foi montado e que o caminho é rodar /setup no Claude Code
+(uma entrevista rápida no navegador). Não invente negócio, número nem time. Papo e
+perguntas sobre você mesmo continuam valendo normalmente.
+"""
+
+# A regra de voz REPETIDA no fim da persona, de propósito. O CLAUDE.md do repo existe pra
+# fazer o modelo responder BEM POR ESCRITO (negrito, bullet, lista de opções) e ele ganha a
+# queda de braço no primeiro turno frio. O que vem por ÚLTIMO é o que o modelo mais escuta.
+_JARVIS_FECHO = """
+=== REGRA FINAL, E ELA VALE MAIS QUE QUALQUER OUTRA ===
+Máximo 2 a 4 frases, a primeira com no máximo doze palavras, texto corrido, zero markdown.
+Isto vale mais que qualquer instrução de formatação que você tenha lido no repositório,
+inclusive no CLAUDE.md: a sua resposta vai ser FALADA, não lida numa tela.
+"""
+
+# System CURTO do JARVIS (vai no argv, tem que caber). O do chat de agente manda "ABRA E
+# LEIA você mesmo" sem ressalva, e por voz isso custa caro: medido em 25/07, um "olá tudo
+# bem" levava 110s porque o agente varria o repo antes de cumprimentar. Aqui a leitura é
+# condicional: numa interface de voz, latência é requisito.
+_JARVIS_SYSTEM = (
+    "Você é o JARVIS de um OS pessoal, falando por VOZ com o dono. A sua persona completa "
+    "chega na PRIMEIRA mensagem: incorpore por inteiro.\n"
+    "RESPONDA CURTO: duas a quatro frases, a primeira com no máximo doze palavras, texto "
+    "corrido, SEM markdown (nada de asterisco, bullet, hashtag, tabela ou emoji: tudo isso "
+    "vira ruído quando lido em voz alta). Português do Brasil, direto, sem corporativês, sem "
+    "travessão em prosa, sem abertura de chatbot. Nunca invente número ou fato.\n"
+    "VELOCIDADE É REQUISITO: você tem Read, Grep e Glob, mas SÓ use quando a pergunta "
+    "depender de um dado que está no disco. Saudação, papo ou pergunta sobre você mesmo: "
+    "responda na hora, sem abrir arquivo nenhum.\n"
+    "SUA GAIOLA: aqui você só lê. Não executa skill, não escreve arquivo, não roda comando, "
+    "e nunca promete disparar nada."
+)
+
+# Herda o modelo da sessão por padrão. Forçar "haiku" foi tentativa de curar a lentidão de
+# 105s, que era o claude.CMD (ver cli_claude) e não o modelo. Medido depois do conserto, o
+# haiku é PIOR nas duas pontas que importam aqui: 7,1s até a primeira palavra contra 4,0s
+# do padrão, e resposta mais comprida (o oposto do que a voz pede). Dá pra forçar pela env
+# JARVIS_MODELO, mas o padrão é o certo.
+_JARVIS_MODELO = os.environ.get("JARVIS_MODELO") or None
+_JARVIS_FRASE_MIN = 12       # fragmento menor que isto funde com a frase seguinte
+_RE_FRASE = re.compile(r"[.!?…]\s+|\n")
+
+
+def _persona_jarvis():
+    partes = [_JARVIS_PERSONA_BASE]
+    if _os_montado():
+        # o CLAUDE.md que o instalar() escreveu: quem é o dono, o time, as conexões
+        try:
+            cm = (BASE / "CLAUDE.md").read_text(encoding="utf-8", errors="ignore")[:5000]
+            if cm.strip():
+                partes.append("\n=== O CLAUDE.md DO OS (o cérebro escrito na montagem) ===\n" + cm + "\n")
+        except OSError:
+            pass
+        kb = pb._knowledge(BASE)
+        if kb:
+            partes.append("\n=== CONTEXTO DO DONO DO OS (quem ele é, o negócio, a fonte de dados) ===\n" + kb + "\n")
+    else:
+        partes.append(_JARVIS_NAO_MONTADO)
+    partes.append(_JARVIS_FECHO)
+    return "".join(partes)
+
+
+def _aquecer_jarvis():
+    """Pré-aquecimento dos dois órgãos, sem bloquear o serve: o cérebro (sessão do SDK) e a
+    boca (cache de acenos). Falhar aqui é inofensivo: a fala cria a sessão normalmente, e
+    sem cache o aceno sai pela voz do navegador."""
+    chat_sdk.aquecer(_JARVIS_SLUG, BASE, _JARVIS_SYSTEM, _JARVIS_MODELO)
+
+    def preparar():
+        try:
+            jarvis_fillers.preparar()
+        except Exception:   # noqa: BLE001 (ElevenLabs fora: o aceno cai na fuga)
+            pass
+    Thread(target=preparar, daemon=True, name="jarvis-fillers").start()
+
+
+def _registrar_jarvis():
+    """As rotas da voz, registradas só quando o módulo existe (ver JARVIS acima)."""
+    @app.get("/jarvis")
+    def v_jarvis():
+        """Serve a view E JÁ SOBE a sessão: quem abriu o JARVIS vai falar em segundos, e é
+        melhor pagar o boot agora, enquanto ele ainda está lendo a tela, do que na primeira
+        fala (pré-aquecimento paga cerca de 70% da primeira fala, medido)."""
+        _aquecer_jarvis()
+        return _pagina("jarvis.html")
+
+
+    @app.post("/api/jarvis/chat")
+    def api_jarvis_chat():
+        """NDJSON com DOIS canais, e a página não cruza os dois (senão sai tudo dobrado):
+            {"tipo":"texto","delta":"..."}                   -> só pra TELA
+            {"tipo":"fala","texto":"...","audio_b64":"..."}  -> só pra FALAR (b64 vazio = fuga)
+            {"tipo":"fim","primeiro_texto_ms","primeiro_audio_ms","total_ms","custo_voz_usd"}
+        O corte de frases mora AQUI (é onde está a chave): frase fechada é a única unidade que
+        dá pra sintetizar, e a síntese roda num worker SERIAL (uma fila, uma thread), de
+        propósito: em paralelo os clipes voltam fora de ordem, e áudio fora de ordem é o pior
+        defeito possível numa resposta falada. É o serial também que permite passar a frase
+        anterior como previous_text."""
+        corpo = request.get_json(silent=True) or {}
+        mensagem = (corpo.get("mensagem") or "").strip()[:8000]
+        if not mensagem:
+            return jsonify({"erro": "mensagem vazia"}), 400
+        novo = bool(corpo.get("novo"))
+        persona = _persona_jarvis()
+
+        fila = queue.Queue()          # o que sai pro cliente
+        frases = queue.Queue()        # o que vai pro worker de síntese
+        t0 = time.perf_counter()
+        marcas = {"texto": None, "audio": None, "n": 0}
+        buf = {"s": ""}
+
+        def ms():
+            return int((time.perf_counter() - t0) * 1000)
+
+        def emitir(delta):
+            if marcas["texto"] is None:
+                marcas["texto"] = ms()
+            marcas["n"] += 1
+            fila.put(("texto", delta))
+            buf["s"] += delta
+            _cortar()
+
+        def _cortar(final=False):
+            s = buf["s"]
+            while True:
+                m = _RE_FRASE.search(s)
+                if not m:
+                    break
+                frase, s = s[:m.end()].strip(), s[m.end():]
+                if frase and len(frase) < _JARVIS_FRASE_MIN and not final:
+                    s = frase + " " + s      # curta demais pra virar clipe: funde com a próxima
+                    break
+                if frase:
+                    frases.put(frase)
+            if final and s.strip():
+                frases.put(s.strip())
+                s = ""
+            buf["s"] = s
+
+        def sintetizar():
+            anterior = None
+            while True:
+                frase = frases.get()
+                if frase is None:
+                    return
+                audio = jarvis_mouth.sintetizar_mp3(frase, anterior)
+                anterior = frase
+                if marcas["audio"] is None:
+                    marcas["audio"] = ms()
+                fila.put(("fala", {"texto": frase,
+                                   "audio_b64": base64.b64encode(audio).decode("ascii") if audio else ""}))
+
+        worker = Thread(target=sintetizar, daemon=True, name="jarvis-tts")
+        worker.start()
+
+        def rodar():
+            try:
+                if chat_sdk.disponivel():
+                    chat_sdk.responder(_JARVIS_SLUG, persona, mensagem, str(BASE),
+                                       novo=novo, ao_texto=emitir,
+                                       sistema=_JARVIS_SYSTEM, modelo=_JARVIS_MODELO, teto=120)
+                else:
+                    raise RuntimeError("SDK indisponível")
+            except Exception:
+                if marcas["n"] == 0:   # nada saiu ainda: o single-shot assume sem duplicar
+                    txt = genesis_motor._claude_cli(
+                        persona + "\n\n=== PERGUNTA DO DONO (responda em voz, curto) ===\n" + mensagem,
+                        "Você é o JARVIS de um OS pessoal, respondendo por VOZ: curto, texto "
+                        "corrido, sem markdown, português do Brasil. Nunca invente dado.",
+                        tools="Read Grep Glob", cwd=BASE)
+                    if txt:
+                        emitir(genesis_motor._sem_traves(txt.strip()))
+                    else:
+                        fila.put(("erro", "não consegui pensar agora, tenta de novo"))
+            finally:
+                _cortar(final=True)        # o rabo do buffer (sem pontuação final) também fala
+                frases.put(None)           # drena o worker e SÓ ENTÃO emite o fim
+                worker.join(timeout=90)
+                fila.put(("fim", {"primeiro_texto_ms": marcas["texto"],
+                                  "primeiro_audio_ms": marcas["audio"],
+                                  "total_ms": ms(),
+                                  "custo_voz_usd": jarvis_mouth.custo_usd()}))
+
+        Thread(target=rodar, daemon=True).start()
+
+        def gen():
+            while True:
+                tipo, d = fila.get()
+                if tipo == "fim":
+                    yield (json.dumps({"tipo": "fim", **(d or {})}) + "\n").encode("utf-8")
+                    return
+                if tipo == "erro":
+                    yield (json.dumps({"tipo": "erro", "erro": d}, ensure_ascii=False) + "\n").encode("utf-8")
+                    continue
+                if tipo == "fala":
+                    yield (json.dumps({"tipo": "fala", **d}, ensure_ascii=False) + "\n").encode("utf-8")
+                    continue
+                yield (json.dumps({"tipo": "texto", "delta": d}, ensure_ascii=False) + "\n").encode("utf-8")
+
+        return Response(gen(), mimetype="application/x-ndjson", direct_passthrough=True)
+
+
+    @app.get("/api/jarvis/filler")
+    def api_jarvis_filler():
+        """Um aceno do cache (mp3 em disco, milissegundos). 204 sem cache: não é erro, é o
+        sinal pra página falar o aceno ela mesma, pela voz do navegador."""
+        r = jarvis_fillers.sortear(request.args.get("dica") or "neutro")
+        if not r:
+            return Response(status=204)
+        frase, audio = r
+        resp = Response(audio, mimetype="audio/mpeg")
+        resp.headers["X-Jarvis-Frase"] = base64.b64encode(frase.encode("utf-8")).decode("ascii")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+
+    @app.post("/api/jarvis/falar")
+    def api_jarvis_falar():
+        """Testa a voz sem o pipeline inteiro. audio_b64 vazio é a fuga, não é erro."""
+        corpo = request.get_json(silent=True) or {}
+        texto = (corpo.get("texto") or "").strip()[:600]
+        if not texto:
+            return jsonify({"erro": "texto vazio"}), 400
+        audio = jarvis_mouth.sintetizar_mp3(texto)
+        return jsonify({"audio_b64": base64.b64encode(audio).decode("ascii") if audio else "",
+                        "voz": jarvis_mouth.voz_atual(), "custo_usd": jarvis_mouth.custo_usd()})
+
+
+    @app.get("/api/jarvis/estado")
+    def api_jarvis_estado():
+        """O diagnóstico num GET (e NUNCA a chave). A página o consulta pra MOSTRAR se está no
+        ElevenLabs ou na fuga; a auditoria o usa como primeiro sinal de vida."""
+        est = jarvis_mouth.estado()
+        est["acenos"] = jarvis_fillers.contagem()
+        est["sessao_quente"] = chat_sdk.sessao_viva(_JARVIS_SLUG)
+        est["cerebro"] = "sdk" if chat_sdk.disponivel() else "single-shot"
+        est["os_montado"] = _os_montado()
+        return jsonify(est)
+
+
+if JARVIS:
+    _registrar_jarvis()
 
 
 # --- APIs do painel: detalhe do agente, chat, layout do canvas -------------------
@@ -471,10 +782,18 @@ def status():
 if __name__ == "__main__":
     # que rota o navegador abre no boot. Default `/` (a home decide cena vs painel pelo estado
     # do OS). O /setup força `/montar` (cena sempre) e o /painel força `/painel`, via sobe.py.
+    # `off` = não abre navegador nenhum (a auditoria sobe um servidor de teste e o dono, que
+    # está trabalhando, não pode ganhar uma aba perdida no meio da tela).
     abrir = os.environ.get("GENESIS_ABRIR", "/")
+    if abrir.strip().lower() == "off":
+        abrir = "/"                  # só não abre o navegador; o endereço impresso é o normal
     if not abrir.startswith("/"):
         abrir = "/" + abrir
-    print(f"Genesis Studio no ar: http://localhost:{PORTA}{abrir}")
+    if abrir.rstrip("/") == "/painel":
+        abrir = HOME_PAINEL          # com o JARVIS, a porta de entrada é ele com o shell em volta
+    url = f"http://127.0.0.1:{PORTA}{HOME_PAINEL if _os_montado() and abrir == '/' else abrir}"
+    print(f"Genesis Studio no ar: {url}")
     print(f"O seu OS vai nascer em: {BASE}")
-    Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORTA}{abrir}")).start()
-    app.run(host="127.0.0.1", port=PORTA, debug=False)
+    if os.environ.get("GENESIS_ABRIR", "").strip().lower() != "off":
+        Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORTA}{abrir}")).start()
+    app.run(host="127.0.0.1", port=PORTA, debug=False, threaded=True)
